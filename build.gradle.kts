@@ -56,7 +56,7 @@ dependencies {
     implementation("com.typesafe:config:1.4.3")
     
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     
     // Testing
     testImplementation("io.ktor:ktor-server-tests-jvm")
