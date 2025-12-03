@@ -52,7 +52,7 @@ dependencies {
     
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("net.logstash.logback:logstash-logback-encoder:7.4")
+    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("com.typesafe:config:1.4.3")
     
     // Coroutines
