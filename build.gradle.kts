@@ -53,7 +53,7 @@ dependencies {
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
-    implementation("com.typesafe:config:1.4.3")
+    implementation("com.typesafe:config:1.4.5")
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
