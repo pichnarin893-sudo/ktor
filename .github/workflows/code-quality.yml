@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main, develop ]
   schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
+    - cron: '0 0 * * 0'
 
 jobs:
   security-scan:
@@ -70,7 +70,7 @@ jobs:
           distribution: 'temurin'
       
       - name: Cache Gradle packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
@@ -84,7 +84,7 @@ jobs:
         run: ./gradlew dependencies --no-daemon > dependencies.txt
       
       - name: Upload dependency report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-report
           path: dependencies.txt
