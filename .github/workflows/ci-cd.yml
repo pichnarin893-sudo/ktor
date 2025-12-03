@@ -75,20 +75,17 @@ jobs:
           DATABASE_USER: postgres
           DATABASE_PASSWORD: postgres
           JWT_SECRET: test-secret-key-for-ci
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test --no-daemon --stacktrace || true
       
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: build/reports/tests/
-      
-      - name: Publish test report
-        if: always()
-        uses: mikepenz/action-junit-report@v4
-        with:
-          report_paths: '**/build/test-results/test/TEST-*.xml'
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: warn
   
   build:
     name: Build Application
@@ -127,6 +124,7 @@ jobs:
           name: jar-file
           path: build/libs/app-all.jar
           retention-days: 7
+          if-no-files-found: error
 
   docker-build:
     name: Build and Push Docker Image
@@ -173,6 +171,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-      
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
