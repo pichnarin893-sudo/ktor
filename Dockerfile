@@ -16,7 +16,7 @@ RUN gradle clean buildFatJar --no-daemon
 RUN jar tf build/libs/app-all.jar | grep migration || echo "WARNING: No migration files found!"
 
 # Runtime stage
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Install curl for health checks
