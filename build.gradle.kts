@@ -10,11 +10,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
 }
 
-group = "com.example"
+group = "com.natjoub.auth"
 version = "1.0.0"
 
 application {
-    mainClass.set("com.example.ApplicationKt")
+    mainClass.set("com.natjoub.auth.ApplicationKt")
 }
 
 repositories {
@@ -37,7 +37,11 @@ dependencies {
     implementation("io.ktor:ktor-server-openapi")
     implementation("io.ktor:ktor-server-swagger")
     implementation("io.ktor:ktor-server-request-validation")
-    
+    implementation("io.ktor:ktor-server-rate-limit")
+
+    // Security - BCrypt
+    implementation("org.mindrot:jbcrypt:0.4")
+
     // Database - Exposed ORM
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")
@@ -62,6 +66,7 @@ dependencies {
     testImplementation("io.ktor:ktor-server-tests-jvm")
     testImplementation("io.ktor:ktor-client-content-negotiation")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.insert-koin:koin-test:$koin_version")
     testImplementation("io.insert-koin:koin-test-junit4:$koin_version")
