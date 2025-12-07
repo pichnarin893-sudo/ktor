@@ -2,7 +2,7 @@ package com.natjoub.auth.plugins
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.natjoub.auth.config.JWTConfig
+import com.natjoub.core.config.JWTConfig
 import com.natjoub.auth.repositories.TokenRepository
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -20,6 +20,47 @@ fun Application.configureAuth() {
     val tokenRepository by inject<TokenRepository>()
 
     authentication {
+        // Default JWT configuration (for routes that don't specify a name)
+        jwt {
+            realm = jwtConfig.realm
+            verifier(
+                JWT.require(Algorithm.HMAC256(jwtConfig.secret))
+                    .withAudience(jwtConfig.audience)
+                    .withIssuer(jwtConfig.issuer)
+                    .build()
+            )
+
+            validate { credential ->
+                // Check if token is blacklisted
+                val token = request.headers["Authorization"]?.removePrefix("Bearer ")
+                if (token != null) {
+                    val isBlacklisted = runBlocking {
+                        tokenRepository.isTokenBlacklisted(token)
+                    }
+                    if (isBlacklisted) {
+                        return@validate null
+                    }
+                }
+
+                // Validate audience (accept any valid role)
+                if (credential.payload.audience.contains(jwtConfig.audience)) {
+                    JWTPrincipal(credential.payload)
+                } else {
+                    null
+                }
+            }
+
+            challenge { _, _ ->
+                call.respond(HttpStatusCode.Unauthorized, mapOf(
+                    "success" to false,
+                    "error" to mapOf(
+                        "code" to "UNAUTHORIZED",
+                        "message" to "Invalid or expired token"
+                    )
+                ))
+            }
+        }
+
         // Admin JWT configuration
         jwt("admin-jwt") {
             realm = jwtConfig.realm

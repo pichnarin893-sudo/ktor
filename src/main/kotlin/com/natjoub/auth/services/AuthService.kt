@@ -1,6 +1,6 @@
 package com.natjoub.auth.services
 
-import com.natjoub.auth.config.JWTConfig
+import com.natjoub.core.config.JWTConfig
 import com.natjoub.auth.exceptions.*
 import com.natjoub.auth.models.dto.*
 import com.natjoub.auth.models.entity.RoleType

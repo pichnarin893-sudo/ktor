@@ -14,7 +14,7 @@ group = "com.natjoub.auth"
 version = "1.0.0"
 
 application {
-    mainClass.set("com.natjoub.auth.ApplicationKt")
+    mainClass.set("com.natjoub.core.ApplicationKt")
 }
 
 repositories {

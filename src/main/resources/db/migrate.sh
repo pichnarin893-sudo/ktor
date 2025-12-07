@@ -15,7 +15,7 @@ if [ -z "$MIGRATION_FILE" ]; then
     exit 1
 fi
 
-MIGRATION_PATH="migrations/$MIGRATION_FILE"
+MIGRATION_PATH="migration/$MIGRATION_FILE"
 
 if [ ! -f "$MIGRATION_PATH" ]; then
     echo -e "${RED}Error: Migration file not found: $MIGRATION_PATH${NC}"

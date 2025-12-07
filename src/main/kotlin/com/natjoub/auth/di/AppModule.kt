@@ -1,21 +1,21 @@
 package com.natjoub.auth.di
 
-import com.natjoub.auth.config.JWTConfig
-import com.natjoub.auth.config.loadConfiguration
+import com.natjoub.core.config.JWTConfig
+import com.natjoub.core.config.loadConfiguration
 import com.natjoub.auth.repositories.*
 import com.natjoub.auth.services.AuthService
 import com.natjoub.auth.services.UserService
 import org.koin.dsl.module
 
 /**
- * Koin dependency injection module
- * Registers all repositories, services, and configuration
+ * Koin dependency injection module for Auth service
+ * Registers all auth-related repositories, services, and configuration
  */
 val appModule = module {
     // Configuration
     single { loadConfiguration() }
-    single { get<com.natjoub.auth.config.AppConfig>().jwt }
-    single { get<com.natjoub.auth.config.AppConfig>().database }
+    single { get<com.natjoub.core.config.AppConfig>().jwt }
+    single { get<com.natjoub.core.config.AppConfig>().database }
 
     // Repositories
     single<RoleRepository> { RoleRepositoryImpl() }
