@@ -50,3 +50,5 @@ logs/
 # Test reports
 test-results/
 jacoco/
+
+CLAUDE.md
