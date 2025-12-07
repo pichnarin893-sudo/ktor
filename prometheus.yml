@@ -3,7 +3,22 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'ktor-microservice'
+  # Auth Service metrics
+  - job_name: 'auth-service'
     static_configs:
-      - targets: ['app:8080']
+      - targets: ['auth-service:8081']
     metrics_path: '/metrics'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'auth-service'
+
+  # Inventory Service metrics
+  - job_name: 'inventory-service'
+    static_configs:
+      - targets: ['inventory-service:8082']
+    metrics_path: '/metrics'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'inventory-service'

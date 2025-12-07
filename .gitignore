@@ -51,4 +51,6 @@ logs/
 test-results/
 jacoco/
 
+# Claude Code documentation
 CLAUDE.md
+.claude

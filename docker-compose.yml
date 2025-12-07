@@ -1,21 +1,25 @@
 services:
-  app:
+  # Auth Service
+  auth-service:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: auth-service/Dockerfile
     ports:
-      - "${PORT:-8080}:8080"
+      - "8081:8081"
     environment:
+      # Service Configuration
+      - PORT=8081
+
       # Database Configuration
       - DATABASE_URL=jdbc:postgresql://postgres:5432/microservice_db
       - DATABASE_USER=${DATABASE_USER:-postgres}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
-      - DATABASE_MAX_POOL_SIZE=${DATABASE_MAX_POOL_SIZE:-20}
+      - DATABASE_MAX_POOL_SIZE=10
 
       # JWT Configuration
       - JWT_SECRET=${JWT_SECRET:-8K59fYiceqUan0esfTepgFZrQ+4dz+3rCIcH1PJ0uQ/c/uQdBUvt8NePhQ6uIwSx03nl0/RG8LTiBXcARUslGQ/ffff1ENnSqQX+CLsYzdEwH9Boq0uul6HXQog3BDGTLcpzvXHGKWaBqukDuaW/r3/qemMYPDYBs64pS1HgYso=}
-      - JWT_ISSUER=${JWT_ISSUER:-http://0.0.0.0:8080/}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-http://0.0.0.0:8080/api}
+      - JWT_ISSUER=http://auth-service:8081/
+      - JWT_AUDIENCE=http://auth-service:8081/api
 
       # Application Configuration
       - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
@@ -27,7 +31,50 @@ services:
       - app-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Inventory Service
+  inventory-service:
+    build:
+      context: .
+      dockerfile: inventory-service/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      # Service Configuration
+      - PORT=8082
+
+      # Database Configuration
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/microservice_db
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
+      - DATABASE_MAX_POOL_SIZE=10
+
+      # JWT Configuration (same secret for validation)
+      - JWT_SECRET=${JWT_SECRET:-8K59fYiceqUan0esfTepgFZrQ+4dz+3rCIcH1PJ0uQ/c/uQdBUvt8NePhQ6uIwSx03nl0/RG8LTiBXcARUslGQ/ffff1ENnSqQX+CLsYzdEwH9Boq0uul6HXQog3BDGTLcpzvXHGKWaBqukDuaW/r3/qemMYPDYBs64pS1HgYso=}
+      - JWT_ISSUER=http://auth-service:8081/
+      - JWT_AUDIENCE=http://auth-service:8081/api
+
+      # Auth Service URL for inter-service communication
+      - AUTH_SERVICE_URL=http://auth-service:8081
+
+      # Application Configuration
+      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
+      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
       interval: 30s
       timeout: 10s
       retries: 3
