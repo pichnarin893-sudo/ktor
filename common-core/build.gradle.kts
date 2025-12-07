@@ -16,5 +16,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     // Config library
-    implementation("com.typesafe:config:1.4.3")
+    implementation("com.typesafe:config:1.4.5")
 }
