@@ -1,0 +1,321 @@
+// Jenkins Pipeline for Auth Service
+// This pipeline handles building, testing, and deploying the Auth microservice
+
+pipeline {
+    agent any
+
+    environment {
+        // Service Configuration
+        SERVICE_NAME = 'auth-service'
+        SERVICE_PORT = '8081'
+
+        // Docker Configuration
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_IMAGE_NAME = 'pichc137/ktor-auth-service'
+        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
+        IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
+
+        // Gradle Configuration
+        GRADLE_OPTS = '-Dorg.gradle.daemon=false'
+
+        // Deployment
+        DEPLOY_ENV = 'development'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '5'))
+        timeout(time: 20, unit: 'MINUTES')
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    triggers {
+        // Poll SCM every 2 minutes (will be replaced by webhook)
+        pollSCM('H/2 * * * *')
+    }
+
+    stages {
+        stage('🔍 Checkout') {
+            steps {
+                script {
+                    echo "╔════════════════════════════════════════════════════════╗"
+                    echo "║          AUTH SERVICE - CI/CD PIPELINE               ║"
+                    echo "╚════════════════════════════════════════════════════════╝"
+                    echo "📦 Service: ${SERVICE_NAME}"
+                    echo "🌿 Branch: ${env.GIT_BRANCH}"
+                    echo "📝 Commit: ${env.GIT_COMMIT}"
+                    echo "🏗️  Build: #${BUILD_NUMBER}"
+                }
+                checkout scm
+            }
+        }
+
+        stage('📊 Environment Info') {
+            steps {
+                sh '''
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Build Environment Information"
+                    echo "════════════════════════════════════════════════════════"
+                    echo "☕ Java Version:"
+                    java -version
+                    echo ""
+                    echo "🔧 Gradle Version:"
+                    ./gradlew --version
+                    echo ""
+                    echo "🐳 Docker Version:"
+                    docker --version
+                    echo ""
+                    echo "📂 Workspace: ${WORKSPACE}"
+                    echo "════════════════════════════════════════════════════════"
+                '''
+            }
+        }
+
+        stage('🔨 Build Auth Service') {
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Building Auth Service"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                sh '''
+                    # Build only the auth service and its dependencies
+                    ./gradlew :auth-service:clean :auth-service:build -x test --stacktrace
+
+                    echo ""
+                    echo "✅ Auth service build completed successfully"
+                '''
+            }
+        }
+
+        stage('🧪 Test Auth Service') {
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Running Auth Service Tests"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                sh '''
+                    # Run tests for auth service
+                    ./gradlew :auth-service:test --stacktrace
+
+                    echo ""
+                    echo "✅ All tests passed"
+                '''
+            }
+            post {
+                always {
+                    // Publish test results
+                    junit testResults: '**/auth-service/build/test-results/test/*.xml', allowEmptyResults: true
+
+                    // Publish code coverage if available
+                    script {
+                        if (fileExists('auth-service/build/reports/jacoco/test/jacocoTestReport.xml')) {
+                            jacoco(
+                                execPattern: '**/auth-service/build/jacoco/*.exec',
+                                classPattern: '**/auth-service/build/classes',
+                                sourcePattern: '**/auth-service/src/main/kotlin',
+                                exclusionPattern: '**/*Test*,**/*Mock*'
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('📦 Build Fat JAR') {
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Building Auth Service Fat JAR"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                sh '''
+                    ./gradlew :auth-service:buildFatJar --stacktrace
+
+                    echo ""
+                    echo "📦 Fat JAR created:"
+                    ls -lh auth-service/build/libs/*-all.jar
+                '''
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'auth-service/build/libs/*-all.jar', fingerprint: true
+                }
+            }
+        }
+
+        stage('🐳 Build Docker Image') {
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Building Docker Image"
+                    echo "════════════════════════════════════════════════════════"
+                    echo "🏷️  Image: ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+                }
+                sh '''
+                    docker build \
+                        -f auth-service/Dockerfile \
+                        -t ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${DOCKER_IMAGE_NAME}:latest \
+                        .
+
+                    echo ""
+                    echo "✅ Docker image built successfully"
+                    docker images | grep ${DOCKER_IMAGE_NAME} | head -2
+                '''
+            }
+        }
+
+        stage('🔍 Security Scan') {
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Security Scanning (Optional)"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                sh '''
+                    # Optional: Run Trivy security scan if installed
+                    if command -v trivy &> /dev/null; then
+                        echo "Running Trivy security scan..."
+                        trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} || true
+                    else
+                        echo "⚠️  Trivy not installed, skipping security scan"
+                        echo "   Install with: sudo apt-get install trivy"
+                    fi
+                '''
+            }
+        }
+
+        stage('🚀 Push Docker Image') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Pushing to Docker Registry"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                script {
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
+                        sh """
+                            # Get Docker username from credentials
+                            DOCKER_USER=\$(docker info | grep Username | awk '{print \$2}')
+
+                            # Tag images
+                            docker tag ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} \
+                                ${DOCKER_REGISTRY}/\${DOCKER_USER}/${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
+                            docker tag ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} \
+                                ${DOCKER_REGISTRY}/\${DOCKER_USER}/${DOCKER_IMAGE_NAME}:latest
+
+                            # Push images
+                            docker push ${DOCKER_REGISTRY}/\${DOCKER_USER}/${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
+                            docker push ${DOCKER_REGISTRY}/\${DOCKER_USER}/${DOCKER_IMAGE_NAME}:latest
+
+                            echo ""
+                            echo "✅ Images pushed successfully"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('🚀 Deploy to Development') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Deploying Auth Service to Development"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                sh '''
+                    # Stop and remove existing auth-service container
+                    docker-compose stop auth-service || true
+                    docker-compose rm -f auth-service || true
+
+                    # Rebuild and start auth-service only
+                    docker-compose up -d --build auth-service
+
+                    # Wait for service to be healthy
+                    echo ""
+                    echo "⏳ Waiting for auth service to be healthy..."
+                    for i in {1..30}; do
+                        if curl -sf http://localhost:${SERVICE_PORT}/health > /dev/null; then
+                            echo "✅ Auth service is healthy!"
+                            break
+                        fi
+                        echo "   Attempt $i/30..."
+                        sleep 2
+                    done
+
+                    # Show service status
+                    echo ""
+                    echo "📊 Service Status:"
+                    docker-compose ps auth-service
+                '''
+            }
+        }
+
+        stage('✅ Smoke Tests') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
+            }
+            steps {
+                script {
+                    echo "════════════════════════════════════════════════════════"
+                    echo "           Running Smoke Tests"
+                    echo "════════════════════════════════════════════════════════"
+                }
+                sh '''
+                    # Health check
+                    echo "🔍 Testing /health endpoint..."
+                    curl -f http://localhost:${SERVICE_PORT}/health || exit 1
+
+                    echo ""
+                    echo "✅ Smoke tests passed!"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "════════════════════════════════════════════════════════"
+                echo "           Pipeline Completed"
+                echo "════════════════════════════════════════════════════════"
+                echo "🏗️  Build: #${BUILD_NUMBER}"
+                echo "📊 Status: ${currentBuild.result ?: 'SUCCESS'}"
+                echo "⏱️  Duration: ${currentBuild.durationString.replace(' and counting', '')}"
+                echo "════════════════════════════════════════════════════════"
+            }
+
+            // Clean up old Docker images
+            sh '''
+                echo "🧹 Cleaning up old Docker images..."
+                docker image prune -f --filter "until=48h" || true
+            '''
+        }
+        success {
+            echo "✅ AUTH SERVICE BUILD SUCCEEDED!"
+            // Add notifications here (Slack, email, etc.)
+        }
+        failure {
+            echo "❌ AUTH SERVICE BUILD FAILED!"
+            // Add failure notifications here
+        }
+        unstable {
+            echo "⚠️  AUTH SERVICE BUILD IS UNSTABLE!"
+        }
+    }
+}
