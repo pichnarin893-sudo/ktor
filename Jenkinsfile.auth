@@ -199,16 +199,11 @@ pipeline {
                     echo "════════════════════════════════════════════════════════"
                     echo "           Pushing to Docker Registry"
                     echo "════════════════════════════════════════════════════════"
-
-                    withCredentials([usernamePassword(
-                        credentialsId: "${DOCKER_CREDENTIALS_ID}",
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
+                }
+                script {
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                         sh """
-                            echo "🔐 Logging into Docker registry..."
-                            echo \$DOCKER_PASS | docker login ${DOCKER_REGISTRY} -u \$DOCKER_USER --password-stdin
-
+                            # Push images directly (DOCKER_IMAGE_NAME already includes username)
                             echo "📤 Pushing ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}..."
                             docker push ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
 
@@ -217,17 +212,15 @@ pipeline {
 
                             echo ""
                             echo "✅ Images pushed successfully to ${DOCKER_REGISTRY}"
-
-                            docker logout ${DOCKER_REGISTRY}
                         """
                     }
                 }
             }
         }
 
-        stage('🚀 Deploy to Development') {
+        stage('🚀 Deploy to Development Test') {
             when {
-                branch 'develop'
+                branch 'main' // Deploy only from main branch
             }
             steps {
                 script {
