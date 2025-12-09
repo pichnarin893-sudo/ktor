@@ -218,14 +218,17 @@ pipeline {
             }
         }
 
-        stage('🚀 Deploy to Development Test') {
+        stage('🚀 Deploy Locally') {
             when {
-                branch 'main' // Deploy only from main branch
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
             }
             steps {
                 script {
                     echo "════════════════════════════════════════════════════════"
-                    echo "           Deploying Auth Service to Development"
+                    echo "           Deploying Auth Service Locally (${env.BRANCH_NAME})"
                     echo "════════════════════════════════════════════════════════"
                 }
                 sh '''
