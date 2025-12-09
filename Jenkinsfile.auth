@@ -30,8 +30,9 @@ pipeline {
     }
 
     triggers {
-        // Poll SCM every 2 minutes (will be replaced by webhook)
-        pollSCM('H/2 * * * *')
+        // GitHub webhook trigger - builds automatically on push events
+        // No polling needed - Jenkins receives instant notifications from GitHub
+        githubPush()
     }
 
     stages {
