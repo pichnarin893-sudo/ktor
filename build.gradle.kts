@@ -19,20 +19,36 @@ allprojects {
 //     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 //         kotlinOptions.jvmTarget = "17"
 //     }
+// // }
+
+// subprojects {
+
+//     apply(plugin = "org.jetbrains.kotlin.jvm")
+
+//     java {
+//         toolchain {
+//             languageVersion.set(JavaLanguageVersion.of(17))
+//         }
+//     }
+
+//     kotlin {
+//         jvmToolchain(17)
+//     }
 // }
 
 subprojects {
 
-    apply(plugin = "org.jetbrains.kotlin.jvm")
+    plugins.withId("org.jetbrains.kotlin.jvm") {
 
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
+        java {
+            toolchain {
+                languageVersion.set(JavaLanguageVersion.of(17))
+            }
         }
-    }
 
-    kotlin {
-        jvmToolchain(17)
+        extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
+            jvmToolchain(17)
+        }
     }
 }
 
