@@ -13,13 +13,13 @@ allprojects {
     }
 }
 
-// subprojects {
-//     apply(plugin = "org.jetbrains.kotlin.jvm")
+subprojects {
+    apply(plugin = "org.jetbrains.kotlin.jvm")
 
-//     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-//         kotlinOptions.jvmTarget = "17"
-//     }
-// // }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        kotlinOptions.jvmTarget = "17"
+    }
+}
 
 // subprojects {
 
@@ -52,20 +52,20 @@ allprojects {
 //     }
 // }
 
-subprojects {
+// subprojects {
 
-    plugins.withId("org.jetbrains.kotlin.jvm") {
+//     plugins.withId("org.jetbrains.kotlin.jvm") {
 
-        // ✅ Configure Java toolchain safely
-        extensions.configure<JavaPluginExtension> {
-            toolchain {
-                languageVersion.set(JavaLanguageVersion.of(17))
-            }
-        }
+//         // ✅ Configure Java toolchain safely
+//         extensions.configure<JavaPluginExtension> {
+//             toolchain {
+//                 languageVersion.set(JavaLanguageVersion.of(17))
+//             }
+//         }
 
-        // ✅ Configure Kotlin toolchain safely
-        extensions.configure<KotlinJvmProjectExtension> {
-            jvmToolchain(17)
-        }
-    }
-}
+//         // ✅ Configure Kotlin toolchain safely
+//         extensions.configure<KotlinJvmProjectExtension> {
+//             jvmToolchain(17)
+//         }
+//     }
+// }
