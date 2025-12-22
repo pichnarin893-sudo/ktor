@@ -36,19 +36,36 @@ allprojects {
 //     }
 // }
 
+// subprojects {
+
+//     plugins.withId("org.jetbrains.kotlin.jvm") {
+
+//         java {
+//             toolchain {
+//                 languageVersion.set(JavaLanguageVersion.of(17))
+//             }
+//         }
+
+//         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
+//             jvmToolchain(17)
+//         }
+//     }
+// }
+
 subprojects {
 
     plugins.withId("org.jetbrains.kotlin.jvm") {
 
-        java {
+        // ✅ Configure Java toolchain safely
+        extensions.configure<JavaPluginExtension> {
             toolchain {
                 languageVersion.set(JavaLanguageVersion.of(17))
             }
         }
 
-        extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
+        // ✅ Configure Kotlin toolchain safely
+        extensions.configure<KotlinJvmProjectExtension> {
             jvmToolchain(17)
         }
     }
 }
-
