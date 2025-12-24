@@ -39,6 +39,7 @@ services:
 
   # Inventory Service
   inventory-service:
+  
     build:
       context: .
       dockerfile: inventory-service/Dockerfile
@@ -81,6 +82,7 @@ services:
       start_period: 40s
 
   postgres:
+    container_name: inventory_ktor_postgres
     image: postgres:16-alpine
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-microservice_db}
@@ -100,6 +102,7 @@ services:
       - app-network
 
   prometheus:
+    container_name: inventory_ktor_prometheus
     image: prom/prometheus:latest
     ports:
       - "9090:9090"
@@ -113,6 +116,7 @@ services:
       - app-network
 
   grafana:
+    container_name: inventory_ktor_grafana
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
