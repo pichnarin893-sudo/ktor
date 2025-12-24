@@ -1,5 +1,5 @@
 # Build stage
-FROM gradle:8.5-jdk17 AS build
+FROM gradle:8.5-jdk21 AS build
 WORKDIR /app
 
 # Copy project files
@@ -15,7 +15,7 @@ RUN gradle :auth-service:buildFatJar --no-daemon
 RUN ls -la /app/auth-service/build/libs/
 
 # Runtime stage
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 # Install curl for health checks

@@ -19,6 +19,7 @@ data class AppConfig(
 fun loadConfiguration(): AppConfig {
     val config = HoconApplicationConfig(ConfigFactory.load())
 
+
     val databaseConfig = DatabaseConfig(
         url = System.getenv("DATABASE_URL")
             ?: config.tryGetString("database.url")

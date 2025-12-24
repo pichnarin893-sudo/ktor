@@ -141,7 +141,7 @@ pipeline {
                     echo "️Image: ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
                 }
                 sh '''
-                    docker build \
+                    docker buidcokerld \
                         -f auth-service/Dockerfile \
                         -t ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} \
                         -t ${DOCKER_IMAGE_NAME}:latest \
