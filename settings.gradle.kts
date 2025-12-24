@@ -1,4 +1,4 @@
-rootProject.name = "ktor-microservices"
+rootProject.name = "factory-microservices"
 
 include(
     "common-core",

@@ -12,17 +12,22 @@ docker-compose up -d
 docker-compose ps
 
 # 3. Run database migrations
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/migration/001__create_auth_tables.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/migration/002__create_inventory_schema.sql
+cd ktor/auth-service/src/main/resources/db$ ./migrate.sh 001_create_auth_schema.sql
+cd ktor/inventory-service/src/main/resources/db$ ./migrate.sh 002_create_inventory_schema.sql
+
 
 # 4. (Optional) Load seed data
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/001__mock_roles.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/002__mock_users.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/003__mock_credentials.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/004__mock_branches.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/005__mock_categories.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/006__mock_inventory_items.sql
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/seeder/007__mock_stock_levels.sql
+cd ktor/auth-service/src/main/resources/db$ ./seed.sh 001_mock_roles.sql
+cd ktor/auth-service/src/main/resources/db$ ./seed.sh 002_mock-users.sql
+cd ktor/auth-service/src/main/resources/db$ ./seed.sh 003-mock_credentials.sql
+cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 004__mock_branches.sql
+cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 005__mock_categories.sql
+cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 006__mock_inventory_items.sql
+cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 007__mock_stock_levels.sql
+
+#4.1 (Optional) Rollback
+cd ktor/auth-service/src/main/resources/db$ ./rollback.sh 001_create_auth_schema.sql
+cd ktor/inventory-service/src/main/resources/db$ ./rollback.sh 002_drop_inventory_schema.sql
 
 # 5. Verify everything is running
 curl http://localhost:8080/health
@@ -45,7 +50,7 @@ psql -U postgres -d microservice_db -c "CREATE SCHEMA IF NOT EXISTS auth_schema;
 psql -U postgres -d microservice_db -c "CREATE SCHEMA IF NOT EXISTS inventory_schema;"
 
 # 3. Run migrations
-psql -U postgres -d microservice_db < src/main/resources/db/migration/001__create_auth_tables.sql
+psql -U postgres -d microservice_db < src/main/resources/db/migration/001__create_auth_schema.sql
 psql -U postgres -d microservice_db < src/main/resources/db/migration/002__create_inventory_schema.sql
 
 # 4. (Optional) Load seed data
@@ -133,7 +138,7 @@ docker exec -it ktor-microservice_postgres_1 psql -U postgres -d microservice_db
 
 Run migrations manually:
 ```bash
-docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/migration/001__create_auth_tables.sql
+docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/migration/001__create_auth_schema.sql
 docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < src/main/resources/db/migration/002__create_inventory_schema.sql
 ```
 
@@ -152,12 +157,14 @@ docker exec ktor-microservice_postgres_1 psql -U postgres -d microservice_db < s
 chmod 644 init-schemas.sql
 chmod 644 src/main/resources/db/migration/*.sql
 chmod 644 src/main/resources/db/seeder/*.sql
+chmod 644 src/main/resources/db/rollback/*.sql
+
 ```
 
 ## 🎯 Default Test Credentials
 
 After loading seed data:
 
-- **Admin**: admin@example.com / admin123
-- **Seller**: seller@example.com / seller123
-- **Customer**: customer1@example.com / customer123
+- **Admin**: admin@example.com / admin@123
+- **Manager**: manager@example.com / manager@123
+- **Staff**: staff@example.com / staff@123

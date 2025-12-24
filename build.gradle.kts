@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" apply false
 }
 
-group = "com.natjoub"
+group = "com.factory"
 version = "1.0.0"
 
 allprojects {
@@ -20,52 +20,3 @@ subprojects {
         kotlinOptions.jvmTarget = "21"
     }
 }
-
-// subprojects {
-
-//     apply(plugin = "org.jetbrains.kotlin.jvm")
-
-//     java {
-//         toolchain {
-//             languageVersion.set(JavaLanguageVersion.of(17))
-//         }
-//     }
-
-//     kotlin {
-//         jvmToolchain(17)
-//     }
-// }
-
-// subprojects {
-
-//     plugins.withId("org.jetbrains.kotlin.jvm") {
-
-//         java {
-//             toolchain {
-//                 languageVersion.set(JavaLanguageVersion.of(17))
-//             }
-//         }
-
-//         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
-//             jvmToolchain(17)
-//         }
-//     }
-// }
-
-// subprojects {
-
-//     plugins.withId("org.jetbrains.kotlin.jvm") {
-
-//         // ✅ Configure Java toolchain safely
-//         extensions.configure<JavaPluginExtension> {
-//             toolchain {
-//                 languageVersion.set(JavaLanguageVersion.of(17))
-//             }
-//         }
-
-//         // ✅ Configure Kotlin toolchain safely
-//         extensions.configure<KotlinJvmProjectExtension> {
-//             jvmToolchain(17)
-//         }
-//     }
-// }

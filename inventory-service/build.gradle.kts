@@ -11,7 +11,7 @@ plugins {
 }
 
 application {
-    mainClass.set("com.natjoub.inventory.ApplicationKt")
+    mainClass.set("com.factory.inventory.ApplicationKt")
 }
 
 dependencies {

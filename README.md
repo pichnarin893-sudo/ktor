@@ -1,4 +1,4 @@
-# Ktor Microservice - Production Ready Architecture
+# Small Scale Factory Microservice - Production Ready Architecture
 
 A production-ready Ktor microservice with clean architecture, comprehensive monitoring, and best practices.
 
@@ -101,7 +101,7 @@ docker run -d \
 ./gradlew run
 
 # Or run the jar directly
-java -jar build/libs/ktor-microservice-1.0.0-all.jar
+java -jar build/libs/factory-microservice-1.0.0-all.jar
 ```
 
 ## 📝 API Endpoints
@@ -237,20 +237,20 @@ docker build -t ktor-microservice:latest .
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ktor-microservice
+  name: factory-microservice
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: ktor-microservice
+      app: kfactorytor-microservice
   template:
     metadata:
       labels:
-        app: ktor-microservice
+        app: ktfactoryor-microservice
     spec:
       containers:
-      - name: ktor-microservice
-        image: ktor-microservice:latest
+      - name: factory-microservice
+        image: kfactorytor-microservice:latest
         ports:
         - containerPort: 8080
         env:

@@ -25,7 +25,7 @@ fi
 echo -e "${YELLOW}Running migration: $MIGRATION_FILE${NC}"
 
 # Copy file to container and execute
-sudo docker cp "$MIGRATION_PATH" ktor_postgres_1:/tmp/migration.sql
+sudo docker cp "$MIGRATION_PATH" ktor_postgres_db:/tmp/migration.sql
 sudo docker-compose exec postgres psql -U postgres -d microservice_db -f /tmp/migration.sql
 
 if [ $? -eq 0 ]; then

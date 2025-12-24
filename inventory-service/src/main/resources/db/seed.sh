@@ -25,7 +25,7 @@ fi
 echo -e "${YELLOW}Running seeder: $SEED_FILE${NC}"
 
 # Copy file to container and execute
-sudo docker cp "$SEED_PATH" ktor_postgres_1:/tmp/seeder.sql
+sudo docker cp "$SEED_PATH" ktor_postgres_db:/tmp/seeder.sql
 sudo docker-compose exec postgres psql -U postgres -d microservice_db -f /tmp/seeder.sql
 
 if [ $? -eq 0 ]; then

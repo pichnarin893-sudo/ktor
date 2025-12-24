@@ -82,7 +82,7 @@ services:
       start_period: 40s
 
   postgres:
-    container_name: inventory_ktor_postgres
+    container_name: factory_postgres_db
     image: postgres:16-alpine
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-microservice_db}
@@ -102,7 +102,7 @@ services:
       - app-network
 
   prometheus:
-    container_name: inventory_ktor_prometheus
+    container_name: factory_prometheus
     image: prom/prometheus:latest
     ports:
       - "9090:9090"
@@ -116,7 +116,7 @@ services:
       - app-network
 
   grafana:
-    container_name: inventory_ktor_grafana
+    container_name: factory_grafana
     image: grafana/grafana:latest
     ports:
       - "3000:3000"

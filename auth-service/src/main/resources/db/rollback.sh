@@ -25,7 +25,7 @@ fi
 echo -e "${YELLOW}Running rollback: $ROLLBACK_FILE${NC}"
 
 # Copy file to container and execute
-sudo docker cp "$ROLLBACK_PATH" ktor_postgres_1:/tmp/rollback.sql
+sudo docker cp "$ROLLBACK_PATH" ktor_postgres_db:/tmp/rollback.sql
 sudo docker-compose exec postgres psql -U postgres -d microservice_db -f /tmp/rollback.sql
 
 if [ $? -eq 0 ]; then

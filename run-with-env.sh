@@ -12,5 +12,5 @@ fi
 echo "Loading environment variables from .env..."
 export $(cat .env | grep -v '^#' | xargs)
 
-echo "Starting NatJoub Auth Service..."
+echo "Starting Factory Auth Service..."
 ./gradlew run
