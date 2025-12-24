@@ -1,5 +1,6 @@
-package com.factory.common.security
+package com.factory.auth.security
 
+import com.factory.common.security.Role
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*

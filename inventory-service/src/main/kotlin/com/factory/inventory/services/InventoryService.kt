@@ -17,7 +17,7 @@ class InventoryService(
     private val inventoryItemRepository: InventoryItemRepository,
     private val stockLevelRepository: StockLevelRepository,
     private val stockMovementRepository: StockMovementRepository,
-    private val authServiceClient: com.natjoub.inventory.client.AuthServiceClient
+    private val authServiceClient: com.factory.inventory.client.AuthServiceClient
 ) {
 
     // ============= Branch Operations =============

@@ -1,7 +1,7 @@
-package com.factory.common.security
+package com.factory.auth.config
 
-import com.natjoub.common.config.DatabaseConfig
-import com.natjoub.common.config.JWTConfig
+import com.factory.common.config.DatabaseConfig
+import com.factory.common.config.JWTConfig
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 

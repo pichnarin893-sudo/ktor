@@ -357,8 +357,8 @@ class AuthService(
     /**
      * Map entities to UserDTO
      */
-    private fun mapToUserDTO(user: com.natjoub.auth.models.entity.User,
-                             credential: com.natjoub.auth.models.entity.Credential,
+    private fun mapToUserDTO(user: com.factory.auth.models.entity.User,
+                             credential: com.factory.auth.models.entity.Credential,
                              roleName: String): UserDTO {
         return UserDTO(
             id = user.id.toString(),

@@ -13,9 +13,9 @@ import org.koin.dsl.module
 val inventoryModule = module {
     // Configuration
     single { loadConfiguration() }
-    single { get<com.natjoub.inventory.config.AppConfig>().jwt }
-    single { get<com.natjoub.inventory.config.AppConfig>().database }
-    single { get<com.natjoub.inventory.config.AppConfig>().authServiceUrl }
+    single { get<com.factory.inventory.config.AppConfig>().jwt }
+    single { get<com.factory.inventory.config.AppConfig>().database }
+    single { get<com.factory.inventory.config.AppConfig>().authServiceUrl }
 
     // Auth service client for inter-service communication
     single { AuthServiceClient(get()) }

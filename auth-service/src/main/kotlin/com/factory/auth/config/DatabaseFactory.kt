@@ -1,7 +1,7 @@
-package com.factory.common.security
+package com.factory.auth.config
 
-import com.natjoub.auth.models.entity.*
-import com.natjoub.common.config.DatabaseConfig
+import com.factory.auth.models.entity.*
+import com.factory.common.config.DatabaseConfig
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers

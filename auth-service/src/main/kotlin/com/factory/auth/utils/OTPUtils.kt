@@ -1,4 +1,4 @@
-package com.natjoub.auth.utils
+package com.factory.auth.utils
 
 import java.time.LocalDateTime
 import kotlin.random.Random

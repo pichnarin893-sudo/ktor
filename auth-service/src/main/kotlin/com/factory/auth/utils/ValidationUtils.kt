@@ -1,4 +1,4 @@
-package com.natjoub.auth.utils
+package com.factory.auth.utils
 
 /**
  * Utility object for input validation

@@ -1,4 +1,4 @@
-package com.natjoub.auth.utils
+package com.factory.auth.utils
 
 import org.mindrot.jbcrypt.BCrypt
 

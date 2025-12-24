@@ -11,7 +11,7 @@ plugins {
 }
 
 application {
-    mainClass.set("com.natjoub.auth.ApplicationKt")
+    mainClass.set("com.factory.auth.ApplicationKt")
 }
 
 dependencies {

@@ -237,7 +237,7 @@ class UserService(
     /**
      * Map UserWithCredentialsAndRole to UserDTO
      */
-    private fun mapToUserDTO(userWithRole: com.natjoub.auth.models.entity.UserWithCredentialsAndRole): UserDTO {
+    private fun mapToUserDTO(userWithRole: com.factory.auth.models.entity.UserWithCredentialsAndRole): UserDTO {
         return UserDTO(
             id = userWithRole.user.id.toString(),
             firstName = userWithRole.user.firstName,

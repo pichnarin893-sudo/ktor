@@ -13,8 +13,8 @@ import org.koin.dsl.module
 val appModule = module {
     // Configuration
     single { loadConfiguration() }
-    single { get<com.natjoub.auth.config.AppConfig>().jwt }
-    single { get<com.natjoub.auth.config.AppConfig>().database }
+    single { get<com.factory.auth.config.AppConfig>().jwt }
+    single { get<com.factory.auth.config.AppConfig>().database }
 
     // Repositories
     single<RoleRepository> { RoleRepositoryImpl() }

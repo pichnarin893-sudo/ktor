@@ -107,8 +107,8 @@ fun Application.configureAuth() {
             }
         }
 
-        // Seller JWT configuration
-        jwt("seller-jwt") {
+        // Manager JWT configuration
+        jwt("manager-jwt") {
             realm = jwtConfig.realm
             verifier(
                 JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -132,7 +132,7 @@ fun Application.configureAuth() {
                 // Validate audience and role
                 if (credential.payload.audience.contains(jwtConfig.audience)) {
                     val role = credential.payload.getClaim("role").asString()
-                    if (role == "seller") {
+                    if (role == "manager") {
                         JWTPrincipal(credential.payload)
                     } else {
                         null
@@ -153,8 +153,8 @@ fun Application.configureAuth() {
             }
         }
 
-        // Customer JWT configuration
-        jwt("customer-jwt") {
+        // Staff JWT configuration
+        jwt("staff-jwt") {
             realm = jwtConfig.realm
             verifier(
                 JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -178,7 +178,7 @@ fun Application.configureAuth() {
                 // Validate audience and role
                 if (credential.payload.audience.contains(jwtConfig.audience)) {
                     val role = credential.payload.getClaim("role").asString()
-                    if (role == "customer") {
+                    if (role == "staff") {
                         JWTPrincipal(credential.payload)
                     } else {
                         null
