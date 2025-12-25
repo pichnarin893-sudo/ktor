@@ -7,8 +7,9 @@ import java.time.LocalDateTime
 /**
  * Branches table definition
  * Stores physical locations/stores
+ * No schema prefix - inventory-service owns the entire inventory_db database
  */
-object Branches : Table("inventory_schema.branches") {
+object Branches : Table("branches") {
     val id = uuid("id").autoGenerate()
     val name = varchar("name", 255)
     val code = varchar("code", 50).uniqueIndex()
@@ -29,7 +30,7 @@ object Branches : Table("inventory_schema.branches") {
  * Categories table definition
  * Stores product categories with hierarchical support
  */
-object Categories : Table("inventory_schema.categories") {
+object Categories : Table("categories") {
     val id = uuid("id").autoGenerate()
     val name = varchar("name", 255).uniqueIndex()
     val description = text("description").nullable()
@@ -45,7 +46,7 @@ object Categories : Table("inventory_schema.categories") {
  * Inventory items table definition
  * Stores products/items in inventory
  */
-object InventoryItems : Table("inventory_schema.inventory_items") {
+object InventoryItems : Table("inventory_items") {
     val id = uuid("id").autoGenerate()
     val sku = varchar("sku", 100).uniqueIndex()
     val name = varchar("name", 255)
@@ -68,7 +69,7 @@ object InventoryItems : Table("inventory_schema.inventory_items") {
  * Stock levels table definition
  * Current stock per branch
  */
-object StockLevels : Table("inventory_schema.stock_levels") {
+object StockLevels : Table("stock_levels") {
     val id = uuid("id").autoGenerate()
     val inventoryItemId = uuid("inventory_item_id").references(InventoryItems.id)
     val branchId = uuid("branch_id").references(Branches.id)
@@ -88,7 +89,7 @@ object StockLevels : Table("inventory_schema.stock_levels") {
  * Stock movements table definition
  * Track inventory in/out movements
  */
-object StockMovements : Table("inventory_schema.stock_movements") {
+object StockMovements : Table("stock_movements") {
     val id = uuid("id").autoGenerate()
     val inventoryItemId = uuid("inventory_item_id").references(InventoryItems.id)
     val fromBranchId = uuid("from_branch_id").references(Branches.id).nullable()
@@ -98,7 +99,7 @@ object StockMovements : Table("inventory_schema.stock_movements") {
     val unitPrice = decimal("unit_price", 10, 2).nullable()
     val referenceNumber = varchar("reference_number", 100).nullable()
     val notes = text("notes").nullable()
-    val performedBy = uuid("performed_by").nullable() // Reference to user from auth schema
+    val performedBy = uuid("performed_by").nullable() // Reference to user from auth-service (NO FK - different database!)
     val createdAt = datetime("created_at").clientDefault { LocalDateTime.now() }
 
     override val primaryKey = PrimaryKey(id)

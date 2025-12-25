@@ -11,7 +11,7 @@ MIGRATION_FILE=$1
 
 if [ -z "$MIGRATION_FILE" ]; then
     echo -e "${RED}Usage: ./migrate.sh <migration_file>${NC}"
-    echo "Example: ./migrate.sh 001_create_users_table.sql"
+    echo "Example: ./migrate.sh 002__create_inventory_schema.sql"
     exit 1
 fi
 
@@ -25,12 +25,12 @@ fi
 echo -e "${YELLOW}Running migration: $MIGRATION_FILE${NC}"
 
 # Copy file to container and execute
-sudo docker cp "$MIGRATION_PATH" ktor_postgres_db:/tmp/migration.sql
-sudo docker-compose exec postgres psql -U postgres -d microservice_db -f /tmp/migration.sql
+docker cp "$MIGRATION_PATH" inventory_postgres_db:/tmp/migration.sql
+docker exec -i inventory_postgres_db psql -U inventory_user -d inventory_db -f /tmp/migration.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Migration completed successfully${NC}"
-    sudo docker-compose exec postgres rm /tmp/migration.sql
+    docker exec inventory_postgres_db rm /tmp/migration.sql
 else
     echo -e "${RED}✗ Migration failed${NC}"
     exit 1

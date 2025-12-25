@@ -1,5 +1,5 @@
 -- Seed data for roles
-SET search_path TO auth_schema;
+-- Auth service owns the entire auth_db database - no schema prefix needed
 
 INSERT INTO roles (id, name, created_at, updated_at)
 VALUES
@@ -7,5 +7,3 @@ VALUES
     ('22222222-2222-2222-2222-222222222222', 'manager', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('33333333-3333-3333-3333-333333333333', 'staff', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
-
-SET search_path TO public;

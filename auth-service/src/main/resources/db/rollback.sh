@@ -11,11 +11,11 @@ ROLLBACK_FILE=$1
 
 if [ -z "$ROLLBACK_FILE" ]; then
   echo -e "${RED}Usage: ./rollback.sh <rollback_file>${NC}"
-  echo "Example: ./rollback.sh 001_rollback_users_table.sql"
+  echo "Example: ./rollback.sh 001__drop_auth_schema.sql"
   exit 1
 fi
 
-ROLLBACK_PATH="rollbacks/$ROLLBACK_FILE"
+ROLLBACK_PATH="rollback/$ROLLBACK_FILE"
 
 if [ ! -f "$ROLLBACK_PATH" ]; then
   echo -e "${RED}Error: Rollback file not found: $ROLLBACK_PATH${NC}"
@@ -25,12 +25,12 @@ fi
 echo -e "${YELLOW}Running rollback: $ROLLBACK_FILE${NC}"
 
 # Copy file to container and execute
-sudo docker cp "$ROLLBACK_PATH" ktor_postgres_db:/tmp/rollback.sql
-sudo docker-compose exec postgres psql -U postgres -d microservice_db -f /tmp/rollback.sql
+docker cp "$ROLLBACK_PATH" auth_postgres_db:/tmp/rollback.sql
+docker exec -i auth_postgres_db psql -U auth_user -d auth_db -f /tmp/rollback.sql
 
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}✓ Rollback completed successfully${NC}"
-  sudo docker-compose exec postgres rm /tmp/rollback.sql
+  docker exec auth_postgres_db rm /tmp/rollback.sql
 else
   echo -e "${RED}✗ Rollback failed${NC}"
   exit 1

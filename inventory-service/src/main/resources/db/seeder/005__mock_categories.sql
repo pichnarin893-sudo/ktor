@@ -1,5 +1,5 @@
 -- Seed data for categories
-SET search_path TO inventory_schema;
+-- Inventory service owns the entire inventory_db database - no schema prefix needed
 
 -- Root categories
 INSERT INTO categories (id, name, description, parent_category_id, is_active, created_at, updated_at)
@@ -21,5 +21,4 @@ INSERT INTO categories (id, name, description, parent_category_id, is_active, cr
 VALUES
     (gen_random_uuid(), 'Desks', 'Office and study desks', '22222222-2222-2222-2222-222222222222', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     (gen_random_uuid(), 'Chairs', 'Office and dining chairs', '22222222-2222-2222-2222-222222222222', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    (gen_random_uuid(), 'Storage', 'Cabinets and shelving units', '22222222-2222-2223-3333-333333333333', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-SET search_path TO public;
+    (gen_random_uuid(), 'Storage', 'Cabinets and shelving units', '22222222-2222-2222-2222-222222222222', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

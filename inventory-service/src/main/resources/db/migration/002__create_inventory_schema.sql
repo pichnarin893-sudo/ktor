@@ -1,8 +1,6 @@
--- Create inventory schema
-CREATE SCHEMA IF NOT EXISTS inventory_schema;
-
--- Set search path to inventory schema
-SET search_path TO inventory_schema;
+-- Inventory Service Database Schema
+-- This database is owned entirely by inventory-service
+-- No schema prefix needed - we own the whole database
 
 -- Branches table: Stores physical locations/stores
 CREATE TABLE IF NOT EXISTS branches (
@@ -72,7 +70,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     unit_price DECIMAL(10, 2),
     reference_number VARCHAR(100), -- PO number, invoice number, etc.
     notes TEXT,
-    performed_by UUID, -- Reference to user from auth schema (no FK due to different schema)
+    performed_by UUID, -- Reference to user from auth-service (NO FK - different database!)
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CHECK (quantity > 0),
     CHECK (from_branch_id IS NOT NULL OR to_branch_id IS NOT NULL)
@@ -85,12 +83,13 @@ CREATE INDEX idx_stock_movements_item_id ON stock_movements(inventory_item_id);
 CREATE INDEX idx_stock_movements_from_branch ON stock_movements(from_branch_id);
 CREATE INDEX idx_stock_movements_to_branch ON stock_movements(to_branch_id);
 CREATE INDEX idx_stock_movements_created_at ON stock_movements(created_at);
+CREATE INDEX idx_stock_movements_performed_by ON stock_movements(performed_by);
 CREATE INDEX idx_inventory_items_category_id ON inventory_items(category_id);
 CREATE INDEX idx_inventory_items_sku ON inventory_items(sku);
 CREATE INDEX idx_categories_parent ON categories(parent_category_id);
 
--- Create function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION inventory_schema.update_updated_at_column()
+-- Function to auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
@@ -98,7 +97,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create triggers to auto-update updated_at
+-- Triggers to auto-update updated_at
 CREATE TRIGGER update_branches_updated_at BEFORE UPDATE ON branches
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -110,6 +109,3 @@ CREATE TRIGGER update_inventory_items_updated_at BEFORE UPDATE ON inventory_item
 
 CREATE TRIGGER update_stock_levels_updated_at BEFORE UPDATE ON stock_levels
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Reset search path
-SET search_path TO public;

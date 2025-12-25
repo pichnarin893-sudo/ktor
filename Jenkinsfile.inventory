@@ -9,10 +9,15 @@ pipeline {
         SERVICE_NAME = 'inventory-service'
         SERVICE_PORT = '8082'
 
-        // Docker Configuration
+        // Docker Configuration - Hybrid Approach
+        // Local image name (matches docker-compose convention)
+        LOCAL_IMAGE_NAME = 'small-scale-factory-micro_inventory-service'
+
+        // Remote image name (for Docker Hub registry)
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_IMAGE_NAME = 'pichc137/ktor-inventory-service'
+        REMOTE_IMAGE_NAME = 'pichc137/ktor-inventory-service'
         DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
+
         IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
 
         // Gradle Configuration
@@ -150,20 +155,29 @@ pipeline {
             steps {
                 script {
                     echo "════════════════════════════════════════════════════════"
-                    echo "           Building Docker Image"
+                    echo "           Building Docker Image (Dual Tagging)"
                     echo "════════════════════════════════════════════════════════"
-                    echo "🏷️  Image: ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+                    echo "🏷️  Local: ${LOCAL_IMAGE_NAME}:${IMAGE_TAG}"
+                    echo "🏷️  Remote: ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}"
                 }
                 sh '''
+                    # Build image with both local and remote tags
                     docker build \
                         -f inventory-service/Dockerfile \
-                        -t ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} \
-                        -t ${DOCKER_IMAGE_NAME}:latest \
+                        -t ${LOCAL_IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${LOCAL_IMAGE_NAME}:latest \
+                        -t ${REMOTE_IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${REMOTE_IMAGE_NAME}:latest \
                         .
 
                     echo ""
-                    echo "✅ Docker image built successfully"
-                    docker images | grep ${DOCKER_IMAGE_NAME} | head -2
+                    echo "✅ Docker image built successfully with dual tags"
+                    echo ""
+                    echo "📦 Local images:"
+                    docker images ${LOCAL_IMAGE_NAME} | head -2
+                    echo ""
+                    echo "📦 Remote images:"
+                    docker images ${REMOTE_IMAGE_NAME} | head -2
                 '''
             }
         }
@@ -178,8 +192,8 @@ pipeline {
                 sh '''
                     # Optional: Run Trivy security scan if installed
                     if command -v trivy &> /dev/null; then
-                        echo "Running Trivy security scan..."
-                        trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} || true
+                        echo "🔍 Running Trivy security scan on local image..."
+                        trivy image --severity HIGH,CRITICAL ${LOCAL_IMAGE_NAME}:${IMAGE_TAG} || true
                     else
                         echo "⚠️  Trivy not installed, skipping security scan"
                         echo "   Install with: sudo apt-get install trivy"
@@ -192,28 +206,35 @@ pipeline {
             when {
                 anyOf {
                     branch 'main'
-                    branch 'master'
-                    branch 'develop'
                 }
             }
             steps {
                 script {
                     echo "════════════════════════════════════════════════════════"
-                    echo "           Pushing to Docker Registry"
+                    echo "           Pushing to Docker Registry (Remote Image Only)"
                     echo "════════════════════════════════════════════════════════"
-                }
-                script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                        sh """
-                            # Push images directly (DOCKER_IMAGE_NAME already includes username)
-                            echo "📤 Pushing ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}..."
-                            docker push ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
 
-                            echo "📤 Pushing ${DOCKER_IMAGE_NAME}:latest..."
-                            docker push ${DOCKER_IMAGE_NAME}:latest
+                    withCredentials([usernamePassword(
+                        credentialsId: "${DOCKER_CREDENTIALS_ID}",
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        sh """
+                            echo "Logging into Docker registry..."
+                            echo \$DOCKER_PASS | docker login ${DOCKER_REGISTRY} -u \$DOCKER_USER --password-stdin
+
+                            echo "📤 Pushing ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}..."
+                            docker push ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}
+
+                            echo "📤 Pushing ${REMOTE_IMAGE_NAME}:latest..."
+                            docker push ${REMOTE_IMAGE_NAME}:latest
 
                             echo ""
-                            echo "✅ Images pushed successfully to ${DOCKER_REGISTRY}"
+                            echo "✅ Remote images pushed successfully to ${DOCKER_REGISTRY}"
+                            echo "   - ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}"
+                            echo "   - ${REMOTE_IMAGE_NAME}:latest"
+
+                            docker logout ${DOCKER_REGISTRY}
                         """
                     }
                 }
@@ -222,28 +243,38 @@ pipeline {
 
         stage('🚀 Deploy to Development') {
             when {
-                branch 'develop'
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
             }
             steps {
                 script {
                     echo "════════════════════════════════════════════════════════"
-                    echo "           Deploying Inventory Service to Development"
+                    echo "           Deploying Inventory Service (${env.BRANCH_NAME})"
                     echo "════════════════════════════════════════════════════════"
+                    echo "📦 Using pre-built image: ${LOCAL_IMAGE_NAME}:latest"
                 }
                 sh '''
                     # Ensure auth-service is running (inventory depends on it)
                     if ! docker-compose ps | grep -q "auth-service.*Up"; then
                         echo "⚠️  Auth service not running, starting it first..."
-                        docker-compose up -d auth-service
+                        docker-compose up -d --no-build auth-service
                         sleep 10
                     fi
 
                     # Stop and remove existing inventory-service container
+                    echo "🧹 Cleaning up old containers..."
                     docker-compose stop inventory-service || true
                     docker-compose rm -f inventory-service || true
 
-                    # Rebuild and start inventory-service only
-                    docker-compose up -d --build inventory-service
+                    # Remove any dangling inventory-service containers (using full naming pattern)
+                    docker ps -a --filter "name=small-scale-factory-micro_inventory-service" --format "{{.ID}}" | xargs -r docker rm -f || true
+
+                    # Start inventory-service using the already-built image (no rebuild)
+                    echo ""
+                    echo "🚀 Starting inventory-service with pre-built image..."
+                    docker-compose up -d --no-build inventory-service
 
                     # Wait for service to be healthy
                     echo ""
@@ -261,6 +292,10 @@ pipeline {
                     echo ""
                     echo "📊 Service Status:"
                     docker-compose ps inventory-service
+
+                    echo ""
+                    echo "📦 Running containers:"
+                    docker ps --filter "name=small-scale-factory-micro_inventory-service" --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"
                 '''
             }
         }
@@ -307,10 +342,47 @@ pipeline {
                 echo "════════════════════════════════════════════════════════"
             }
 
-            // Clean up old Docker images
+            // Clean up Docker resources
             sh '''
-                echo "🧹 Cleaning up old Docker images..."
-                docker image prune -f --filter "until=48h" || true
+                echo "🧹 Cleaning up Docker resources..."
+
+                # Clean up old local images (keep only last 3 builds + latest)
+                echo ""
+                echo "Cleaning up old local images (${LOCAL_IMAGE_NAME})..."
+                docker images ${LOCAL_IMAGE_NAME} --format "{{.ID}} {{.Tag}}" | \
+                    grep -v "latest" | \
+                    tail -n +4 | \
+                    awk '{print $1}' | \
+                    xargs -r docker rmi -f || true
+
+                # Clean up old remote images (keep only last 3 builds + latest)
+                echo ""
+                echo "Cleaning up old remote images (${REMOTE_IMAGE_NAME})..."
+                docker images ${REMOTE_IMAGE_NAME} --format "{{.ID}} {{.Tag}}" | \
+                    grep -v "latest" | \
+                    tail -n +4 | \
+                    awk '{print $1}' | \
+                    xargs -r docker rmi -f || true
+
+                # Remove stopped containers
+                echo ""
+                echo "Removing stopped containers..."
+                docker container prune -f || true
+
+                # Remove dangling images (untagged)
+                echo ""
+                echo "Removing dangling images..."
+                docker image prune -f || true
+
+                # Remove unused build cache
+                echo ""
+                echo "Removing unused build cache..."
+                docker builder prune -f --keep-storage 2GB || true
+
+                # Show disk usage
+                echo ""
+                echo "Current Docker disk usage:"
+                docker system df
             '''
         }
         success {

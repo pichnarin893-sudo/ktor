@@ -8,10 +8,15 @@ pipeline {
         SERVICE_NAME = 'auth-service'
         SERVICE_PORT = '8081'
 
-        // Docker Configuration
+        // Docker Configuration - Hybrid Approach
+        // Local image name (matches docker-compose convention)
+        LOCAL_IMAGE_NAME = 'small-scale-factory-micro_auth-service'
+
+        // Remote image name (for Docker Hub registry)
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_IMAGE_NAME = 'pichc137/ktor-auth-service'
+        REMOTE_IMAGE_NAME = 'pichc137/factory-auth-service'
         DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
+
         IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
 
         // Gradle Configuration
@@ -84,7 +89,7 @@ pipeline {
         stage('🧪 Test Auth Service') {
             steps {
                 script {
-                    echo"Running Auth Service Tests"
+                    echo "Running Auth Service Tests"
                 }
                 sh '''
                     # Run tests for auth service
@@ -137,19 +142,28 @@ pipeline {
         stage('🐳 Build Docker Image') {
             steps {
                 script {
-                    echo "Building Docker Image"
-                    echo "️Image: ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}"
+                    echo "Building Docker Image (Dual Tagging)"
+                    echo "Local: ${LOCAL_IMAGE_NAME}:${IMAGE_TAG}"
+                    echo "Remote: ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}"
                 }
                 sh '''
-                    docker buidcokerld \
+                    # Build image with both local and remote tags
+                    docker build \
                         -f auth-service/Dockerfile \
-                        -t ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} \
-                        -t ${DOCKER_IMAGE_NAME}:latest \
+                        -t ${LOCAL_IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${LOCAL_IMAGE_NAME}:latest \
+                        -t ${REMOTE_IMAGE_NAME}:${IMAGE_TAG} \
+                        -t ${REMOTE_IMAGE_NAME}:latest \
                         .
 
                     echo ""
-                    echo "✅ Docker image built successfully"
-                    docker images | grep ${DOCKER_IMAGE_NAME} | head -2
+                    echo "✅ Docker image built successfully with dual tags"
+                    echo ""
+                    echo "Local images:"
+                    docker images ${LOCAL_IMAGE_NAME} | head -2
+                    echo ""
+                    echo "Remote images:"
+                    docker images ${REMOTE_IMAGE_NAME} | head -2
                 '''
             }
         }
@@ -157,13 +171,13 @@ pipeline {
         stage('🔍 Security Scan') {
             steps {
                 script {
-                    echo"Security Scanning (Optional)"
+                    echo "Security Scanning (Optional)"
                 }
                 sh '''
                     # Optional: Run Trivy security scan if installed
                     if command -v trivy &> /dev/null; then
-                        echo "Running Trivy security scan..."
-                        trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE_NAME}:${IMAGE_TAG} || true
+                        echo "Running Trivy security scan on local image..."
+                        trivy image --severity HIGH,CRITICAL ${LOCAL_IMAGE_NAME}:${IMAGE_TAG} || true
                     else
                         echo "Trivy not installed, skipping security scan"
                         echo "Install with: sudo apt-get install trivy"
@@ -180,7 +194,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Pushing to Docker Registry"
+                    echo "Pushing to Docker Registry (Remote Image Only)"
 
                     withCredentials([usernamePassword(
                         credentialsId: "${DOCKER_CREDENTIALS_ID}",
@@ -191,14 +205,16 @@ pipeline {
                             echo "Logging into Docker registry..."
                             echo \$DOCKER_PASS | docker login ${DOCKER_REGISTRY} -u \$DOCKER_USER --password-stdin
 
-                            echo "Pushing ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}..."
-                            docker push ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
+                            echo "Pushing ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}..."
+                            docker push ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}
 
-                            echo "Pushing ${DOCKER_IMAGE_NAME}:latest..."
-                            docker push ${DOCKER_IMAGE_NAME}:latest
+                            echo "Pushing ${REMOTE_IMAGE_NAME}:latest..."
+                            docker push ${REMOTE_IMAGE_NAME}:latest
 
                             echo ""
-                            echo "Images pushed successfully to ${DOCKER_REGISTRY}"
+                            echo "✅ Remote images pushed successfully to ${DOCKER_REGISTRY}"
+                            echo "   - ${REMOTE_IMAGE_NAME}:${IMAGE_TAG}"
+                            echo "   - ${REMOTE_IMAGE_NAME}:latest"
 
                             docker logout ${DOCKER_REGISTRY}
                         """
@@ -216,7 +232,8 @@ pipeline {
             }
             steps {
                 script {
-                    echo"Deploying Auth Service Locally (${env.BRANCH_NAME})"
+                    echo "Deploying Auth Service Locally (${env.BRANCH_NAME})"
+                    echo "Using pre-built image: ${LOCAL_IMAGE_NAME}:latest"
                 }
                 sh '''
                     # Stop and remove existing auth-service container
@@ -224,11 +241,13 @@ pipeline {
                     docker-compose stop auth-service || true
                     docker-compose rm -f auth-service || true
 
-                    # Remove any dangling auth-service containers
-                    docker ps -a --filter "name=auth-service" --format "{{.ID}}" | xargs -r docker rm -f || true
+                    # Remove any dangling auth-service containers (using full naming pattern)
+                    docker ps -a --filter "name=small-scale-factory-micro_auth-service" --format "{{.ID}}" | xargs -r docker rm -f || true
 
-                    # Rebuild and start auth-service only
-                    docker-compose up -d --build auth-service
+                    # Start auth-service using the already-built image (no rebuild)
+                    echo ""
+                    echo "🚀 Starting auth-service with pre-built image..."
+                    docker-compose up -d --no-build auth-service
 
                     # Wait for service to be healthy
                     echo ""
@@ -247,14 +266,9 @@ pipeline {
                     echo "📊 Service Status:"
                     docker-compose ps auth-service
 
-                    # Clean up old images (keep only last 3 builds)
                     echo ""
-                    echo "Cleaning up old Docker images..."
-                    docker images ${DOCKER_IMAGE_NAME} --format "{{.ID}} {{.Tag}}" | \
-                        grep -v "latest" | \
-                        tail -n +4 | \
-                        awk '{print $1}' | \
-                        xargs -r docker rmi -f || true
+                    echo "📦 Running containers:"
+                    docker ps --filter "name=small-scale-factory-micro_auth-service" --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"
                 '''
             }
         }
@@ -295,13 +309,37 @@ pipeline {
             sh '''
                 echo "Cleaning up Docker resources..."
 
+                # Clean up old local images (keep only last 3 builds + latest)
+                echo ""
+                echo "Cleaning up old local images (${LOCAL_IMAGE_NAME})..."
+                docker images ${LOCAL_IMAGE_NAME} --format "{{.ID}} {{.Tag}}" | \
+                    grep -v "latest" | \
+                    tail -n +4 | \
+                    awk '{print $1}' | \
+                    xargs -r docker rmi -f || true
+
+                # Clean up old remote images (keep only last 3 builds + latest)
+                echo ""
+                echo "Cleaning up old remote images (${REMOTE_IMAGE_NAME})..."
+                docker images ${REMOTE_IMAGE_NAME} --format "{{.ID}} {{.Tag}}" | \
+                    grep -v "latest" | \
+                    tail -n +4 | \
+                    awk '{print $1}' | \
+                    xargs -r docker rmi -f || true
+
                 # Remove stopped containers
+                echo ""
+                echo "Removing stopped containers..."
                 docker container prune -f || true
 
                 # Remove dangling images (untagged)
+                echo ""
+                echo "Removing dangling images..."
                 docker image prune -f || true
 
                 # Remove unused build cache
+                echo ""
+                echo "Removing unused build cache..."
                 docker builder prune -f --keep-storage 2GB || true
 
                 # Show disk usage
@@ -311,15 +349,15 @@ pipeline {
             '''
         }
         success {
-            echo "AUTH SERVICE BUILD SUCCEEDED!"
+            echo "✅ AUTH SERVICE BUILD SUCCEEDED!"
             // Add notifications here (Slack, email, etc.)
         }
         failure {
-            echo "AUTH SERVICE BUILD FAILED!"
+            echo "❌ AUTH SERVICE BUILD FAILED!"
             // Add failure notifications here
         }
         unstable {
-            echo "AUTH SERVICE BUILD IS UNSTABLE!"
+            echo "⚠️  AUTH SERVICE BUILD IS UNSTABLE!"
         }
     }
 }

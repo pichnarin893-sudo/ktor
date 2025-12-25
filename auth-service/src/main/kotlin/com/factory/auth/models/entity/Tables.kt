@@ -7,9 +7,10 @@ import java.time.LocalDateTime
 
 /**
  * Roles table definition
- * Stores user roles: admin, seller, customer
+ * Stores user roles: admin, manager, staff
+ * No schema prefix - auth-service owns the entire auth_db database
  */
-object Roles : Table("auth_schema.roles") {
+object Roles : Table("roles") {
     val id = uuid("id").autoGenerate()
     val name = varchar("name", 50).uniqueIndex()
     val createdAt = datetime("created_at").clientDefault { LocalDateTime.now() }
@@ -22,7 +23,7 @@ object Roles : Table("auth_schema.roles") {
  * Users table definition
  * Stores core user information
  */
-object Users : Table("auth_schema.users") {
+object Users : Table("users") {
     val id = uuid("id").autoGenerate()
     val firstName = varchar("first_name", 100)
     val lastName = varchar("last_name", 100)
@@ -40,7 +41,7 @@ object Users : Table("auth_schema.users") {
  * Credentials table definition
  * Stores authentication credentials and verification data
  */
-object Credentials : Table("auth_schema.credentials") {
+object Credentials : Table("credentials") {
     val id = uuid("id").autoGenerate()
     val userId = uuid("user_id").uniqueIndex().references(Users.id)
     val email = varchar("email", 255).uniqueIndex()
@@ -60,7 +61,7 @@ object Credentials : Table("auth_schema.credentials") {
  * Refresh tokens table definition
  * Stores refresh tokens for token rotation and revocation
  */
-object RefreshTokens : Table("auth_schema.refresh_tokens") {
+object RefreshTokens : Table("refresh_tokens") {
     val id = uuid("id").autoGenerate()
     val userId = uuid("user_id").references(Users.id)
     val token = text("token").uniqueIndex()
@@ -75,7 +76,7 @@ object RefreshTokens : Table("auth_schema.refresh_tokens") {
  * Token blacklist table definition
  * Stores invalidated access tokens for logout functionality
  */
-object TokenBlacklist : Table("auth_schema.token_blacklist") {
+object TokenBlacklist : Table("token_blacklist") {
     val id = uuid("id").autoGenerate()
     val token = text("token").uniqueIndex()
     val expiresAt = datetime("expires_at")

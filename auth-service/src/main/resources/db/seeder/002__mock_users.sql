@@ -1,5 +1,5 @@
 -- Seed data for users
-SET search_path TO auth_schema;
+-- Auth service owns the entire auth_db database - no schema prefix needed
 
 INSERT INTO users (
     id, first_name, last_name, dob, gender, role_id, is_active, created_at, updated_at
@@ -33,5 +33,3 @@ VALUES
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
     )
 ON CONFLICT (id) DO NOTHING;
-
-SET search_path TO public;

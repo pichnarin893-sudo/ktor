@@ -1,5 +1,5 @@
 -- Seed data for stock levels
-SET search_path TO inventory_schema;
+-- Inventory service owns the entire inventory_db database - no schema prefix needed
 
 -- Add initial stock levels for various items across branches
 -- This assumes branches and inventory items have been seeded
@@ -70,5 +70,3 @@ BEGIN
     SELECT id, north_branch_id, 30, 0, NOW()
     FROM inventory_items WHERE sku = 'CLTH-PLO-001';
 END $$;
-
-SET search_path TO public;

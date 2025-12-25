@@ -1,77 +1,19 @@
 services:
-
-  auth-db:
-    container_name: auth_postgres_db
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=auth_db
-      - POSTGRES_USER=${AUTH_DB_USER:-auth_user}
-      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD:-auth_password}
-    ports:
-      - "5432:5432"
-    volumes:
-      - auth-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:-auth_user} -d auth_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  inventory-db:
-    container_name: inventory_postgres_db
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=inventory_db
-      - POSTGRES_USER=${INVENTORY_DB_USER:-inventory_user}
-      - POSTGRES_PASSWORD=${INVENTORY_DB_PASSWORD:-inventory_password}
-    ports:
-      - "5433:5432"
-    volumes:
-      - inventory-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${INVENTORY_DB_USER:-inventory_user} -d inventory_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  telegram-db:
-    container_name: telegram_postgres_db
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=telegram_db
-      - POSTGRES_USER=${TELEGRAM_DB_USER:-telegram_user}
-      - POSTGRES_PASSWORD=${TELEGRAM_DB_PASSWORD:-telegram_password}
-    ports:
-      - "5434:5432"
-    volumes:
-      - telegram-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${TELEGRAM_DB_USER:-telegram_user} -d telegram_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
+  # Auth Service
   auth-service:
     build:
       context: .
       dockerfile: auth-service/Dockerfile
-    container_name: auth_service
     ports:
       - "8081:8081"
     environment:
       # Service Configuration
       - PORT=8081
 
-      # Database Configuration (separate auth database)
-      - DATABASE_URL=jdbc:postgresql://auth-db:5432/auth_db
-      - DATABASE_USER=${AUTH_DB_USER:-auth_user}
-      - DATABASE_PASSWORD=${AUTH_DB_PASSWORD:-auth_password}
+      # Database Configuration
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/microservice_db
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
       - DATABASE_MAX_POOL_SIZE=10
 
       # JWT Configuration
@@ -83,7 +25,7 @@ services:
       - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
     depends_on:
-      auth-db:
+      postgres:
         condition: service_healthy
     networks:
       - app-network
@@ -95,21 +37,22 @@ services:
       retries: 3
       start_period: 40s
 
+  # Inventory Service
   inventory-service:
+  
     build:
       context: .
       dockerfile: inventory-service/Dockerfile
-    container_name: inventory_service
     ports:
       - "8082:8082"
     environment:
       # Service Configuration
       - PORT=8082
 
-      # Database Configuration (separate inventory database)
-      - DATABASE_URL=jdbc:postgresql://inventory-db:5432/inventory_db
-      - DATABASE_USER=${INVENTORY_DB_USER:-inventory_user}
-      - DATABASE_PASSWORD=${INVENTORY_DB_PASSWORD:-inventory_password}
+      # Database Configuration
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/microservice_db
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
       - DATABASE_MAX_POOL_SIZE=10
 
       # JWT Configuration (same secret for validation)
@@ -124,7 +67,7 @@ services:
       - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
       - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
     depends_on:
-      inventory-db:
+      postgres:
         condition: service_healthy
       auth-service:
         condition: service_healthy
@@ -137,6 +80,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  postgres:
+    container_name: factory_postgres_db
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-microservice_db}
+      - POSTGRES_USER=${DATABASE_USER:-postgres}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
 
   prometheus:
     container_name: factory_prometheus
@@ -172,16 +135,9 @@ services:
       - app-network
 
 volumes:
-  auth-db-data:
-    name: auth_db_data
-  inventory-db-data:
-    name: inventory_db_data
-  telegram-db-data:
-    name: telegram_db_data
+  postgres-data:
   prometheus-data:
-    name: prometheus_data
   grafana-data:
-    name: grafana_data
 
 networks:
   app-network:

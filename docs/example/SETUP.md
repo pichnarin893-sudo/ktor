@@ -31,6 +31,11 @@ cd ktor/inventory-service/src/main/resources/db$ ./rollback.sh 002_drop_inventor
 
 # 5. Verify everything is running
 curl http://localhost:8080/health
+
+# 6. Access to the postsgres container
+docker exec -it auth_postgres_db psql -U auth_user -d auth_db
+docker exec -it inventory_postgres_db psql -U inventory_user -d inventory_db
+docker exec -it telegram_postgres_db psql -U telegram_user -d telegram_db
 ```
 
 ### Option 2: Local Development

@@ -11,7 +11,7 @@ SEED_FILE=$1
 
 if [ -z "$SEED_FILE" ]; then
     echo -e "${RED}Usage: ./seed.sh <seed_file>${NC}"
-    echo "Example: ./seed.sh 001_mock_roles.sql"
+    echo "Example: ./seed.sh 001__mock_roles.sql"
     exit 1
 fi
 
@@ -25,12 +25,12 @@ fi
 echo -e "${YELLOW}Running seeder: $SEED_FILE${NC}"
 
 # Copy file to container and execute
-sudo docker cp "$SEED_PATH" ktor_postgres_db:/tmp/seeder.sql
-sudo docker-compose exec postgres psql -U postgres -d microservice_db -f /tmp/seeder.sql
+docker cp "$SEED_PATH" auth_postgres_db:/tmp/seeder.sql
+docker exec -i auth_postgres_db psql -U auth_user -d auth_db -f /tmp/seeder.sql
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Seeder completed successfully${NC}"
-    sudo docker-compose exec postgres rm /tmp/seeder.sql
+    docker exec auth_postgres_db rm /tmp/seeder.sql
 else
     echo -e "${RED}✗ Seeder failed${NC}"
     exit 1

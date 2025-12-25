@@ -1,5 +1,5 @@
 -- Seed data for inventory items
-SET search_path TO inventory_schema;
+-- Inventory service owns the entire inventory_db database - no schema prefix needed
 
 -- Get category IDs for reference
 DO $$
@@ -39,5 +39,3 @@ BEGIN
         ('CLTH-PLO-001', 'Polo Shirt - Navy', 'Professional polo shirt', clothing_id, 'piece', 29.99, 20, 40, '123456789032', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
         ('CLTH-JAC-001', 'Fleece Jacket', 'Warm fleece jacket with zipper', clothing_id, 'piece', 49.99, 15, 30, '123456789033', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 END $$;
-
-SET search_path TO public;

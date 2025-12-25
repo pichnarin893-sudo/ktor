@@ -1,13 +1,12 @@
+-- Auth Service Database Schema
+-- This database is owned entirely by auth-service
+-- No schema prefix needed - we own the whole database
+
 -- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create auth schema
-CREATE SCHEMA IF NOT EXISTS auth_schema;
-
--- Set search path to auth schema
-SET search_path TO auth_schema;
-
+-- Roles table
 CREATE TABLE IF NOT EXISTS roles (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        VARCHAR(50) NOT NULL UNIQUE,
@@ -15,6 +14,7 @@ CREATE TABLE IF NOT EXISTS roles (
     updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Users table
 CREATE TABLE IF NOT EXISTS users (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     first_name  VARCHAR(100) NOT NULL,
@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT check_gender CHECK (gender IN ('male', 'female', 'other') OR gender IS NULL)
 );
 
+-- Credentials table
 CREATE TABLE IF NOT EXISTS credentials (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id       UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS credentials (
     updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Refresh tokens table
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -51,6 +53,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Token blacklist table
 CREATE TABLE IF NOT EXISTS token_blacklist (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     token       TEXT NOT NULL UNIQUE,
@@ -58,6 +61,7 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
 CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 
@@ -71,8 +75,8 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expir
 
 CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at ON token_blacklist(expires_at);
 
--- Create function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION auth_schema.update_updated_at_column()
+-- Function to auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
@@ -80,7 +84,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create triggers to auto-update updated_at
+-- Triggers to auto-update updated_at
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -89,6 +93,3 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 
 CREATE TRIGGER update_credentials_updated_at BEFORE UPDATE ON credentials
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Reset search path
-SET search_path TO public;

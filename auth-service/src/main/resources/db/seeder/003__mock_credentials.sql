@@ -1,19 +1,20 @@
-SET search_path TO auth_schema;
+-- Seed data for credentials
+-- Auth service owns the entire auth_db database - no schema prefix needed
 
 INSERT INTO credentials (
     id, user_id, email, username, phone_number, password, is_verified, created_at, updated_at
 )
 VALUES
     (
-        '11111111-1111-1111-1111-111111111111',  
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',  
-        'pichnarin893@gmail.com',                      
-        'admin',                                 
-        '0975812400',                            
-        public.crypt('admin@123', public.gen_salt('bf')), 
-        true,                                    
-        CURRENT_TIMESTAMP,                        
-        CURRENT_TIMESTAMP                        
+        '11111111-1111-1111-1111-111111111111',
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        'pichnarin893@gmail.com',
+        'admin',
+        '0975812400',
+        crypt('admin@123', gen_salt('bf')),
+        true,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
     ),
     (
         '22222222-2222-2222-2222-222222222222',
@@ -21,7 +22,7 @@ VALUES
         'tleanghour67@gmail.com',
         'manager01',
         '017963338',
-        public.crypt('manager@123', public.gen_salt('bf')),
+        crypt('manager@123', gen_salt('bf')),
         true,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
@@ -32,11 +33,9 @@ VALUES
         'moonlightfriday61@gmail.com',
         'staff01',
         '0123478321',
-        public.crypt('staff@123', public.gen_salt('bf')),
+        crypt('staff@123', gen_salt('bf')),
         true,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     )
 ON CONFLICT (user_id) DO NOTHING;
-
-SET search_path TO public;
