@@ -9,7 +9,7 @@ COPY order-service ./order-service
 # Build fat JAR
 RUN gradle :order-service:buildFatJar --no-daemon
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Copy JAR from build stage
