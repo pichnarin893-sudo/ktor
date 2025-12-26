@@ -8,7 +8,7 @@ COPY telegram-bot-service ./telegram-bot-service
 # Build fat JAR
 RUN gradle :telegram-bot-service:fatJar --no-daemon
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Copy JAR from build stage
