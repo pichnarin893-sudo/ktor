@@ -21,9 +21,8 @@ fun Application.configureRouting() {
 
         // Auth service routes
         publicAuthRoutes()
-        adminRoutes()
-        managerRoutes()
-        staffRoutes()
+        employeeRoutes()
+        customerRoutes()
 
         // Internal service-to-service routes
         internalRoutes()

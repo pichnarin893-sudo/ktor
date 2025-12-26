@@ -15,17 +15,18 @@ import org.koin.ktor.ext.inject
 import java.util.*
 
 /**
- * Protected staff routes (requires staff-jwt authentication)
+ * Protected customer routes (requires customer-jwt authentication)
+ * Customers can view products and manage their orders
  */
-fun Route.staffRoutes() {
+fun Route.customerRoutes() {
     val authService by inject<AuthService>()
     val userService by inject<UserService>()
 
-    authenticate("staff-jwt") {
-        route("/v1/staff/auth") {
+    authenticate("customer-jwt") {
+        route("/v1/customer/auth") {
             /**
-             * Get staff profile
-             * GET /v1/staff/auth/profile
+             * Get customer profile
+             * GET /v1/customer/auth/profile
              */
             get("/profile") {
                 val principal = call.principal<JWTPrincipal>()
@@ -44,8 +45,8 @@ fun Route.staffRoutes() {
             }
 
             /**
-             * Update staff profile
-             * PUT /v1/staff/auth/profile
+             * Update customer profile
+             * PUT /v1/customer/auth/profile
              */
             put("/profile") {
                 val principal = call.principal<JWTPrincipal>()
@@ -65,28 +66,8 @@ fun Route.staffRoutes() {
             }
 
             /**
-             * Get staff bookings
-             * GET /v1/staff/auth/bookings
-             * TODO: Implement booking integration
-             */
-            get("/bookings") {
-                val principal = call.principal<JWTPrincipal>()
-                val userId = UUID.fromString(principal?.getUserId())
-
-                // TODO: Integrate with booking service
-                call.respond(
-                    HttpStatusCode.OK,
-                    ApiResponse(
-                        success = true,
-                        data = mapOf("bookings" to emptyList<Any>(), "total" to 0),
-                        message = "Bookings retrieved successfully"
-                    )
-                )
-            }
-
-            /**
-             * Logout staff
-             * POST /v1/staff/auth/logout
+             * Logout customer
+             * POST /v1/customer/auth/logout
              */
             post("/logout") {
                 val principal = call.principal<JWTPrincipal>()

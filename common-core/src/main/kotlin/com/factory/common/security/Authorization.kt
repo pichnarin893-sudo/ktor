@@ -36,24 +36,17 @@ fun ApplicationCall.hasRole(vararg roles: Role): Boolean {
 }
 
 /**
- * Check if the user has admin role
+ * Check if the user has employee role
  */
-fun ApplicationCall.isAdmin(): Boolean {
-    return hasRole(Role.ADMIN)
+fun ApplicationCall.isEmployee(): Boolean {
+    return hasRole(Role.EMPLOYEE)
 }
 
 /**
- * Check if the user has manager role
+ * Check if the user has customer role
  */
-fun ApplicationCall.isManager(): Boolean {
-    return hasRole(Role.MANAGER)
-}
-
-/**
- * Check if the user has staff role
- */
-fun ApplicationCall.isStaff(): Boolean {
-    return hasRole(Role.STAFF)
+fun ApplicationCall.isCustomer(): Boolean {
+    return hasRole(Role.CUSTOMER)
 }
 
 /**
@@ -74,15 +67,8 @@ suspend fun ApplicationCall.requireRole(vararg roles: Role): Boolean {
 }
 
 /**
- * Respond with forbidden status if not admin
+ * Respond with forbidden status if not employee
  */
-suspend fun ApplicationCall.requireAdmin(): Boolean {
-    return requireRole(Role.ADMIN)
-}
-
-/**
- * Respond with forbidden status if not admin or manager
- */
-suspend fun ApplicationCall.requireAdminOrManager(): Boolean {
-    return requireRole(Role.ADMIN, Role.MANAGER)
+suspend fun ApplicationCall.requireEmployee(): Boolean {
+    return requireRole(Role.EMPLOYEE)
 }

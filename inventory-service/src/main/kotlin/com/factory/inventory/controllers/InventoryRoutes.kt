@@ -1,7 +1,7 @@
 package com.factory.inventory.controllers
 
 import com.factory.common.security.getUserId
-import com.factory.common.security.requireAdmin
+import com.factory.common.security.requireEmployee
 import com.factory.inventory.exceptions.InventoryException
 import com.factory.inventory.models.dto.*
 import com.factory.inventory.services.InventoryService
@@ -27,7 +27,7 @@ fun Route.inventoryRoutes() {
             authenticate {
                 // Create branch (admin only)
                 post {
-                    if (!call.requireAdmin()) return@post
+                    if (!call.requireEmployee()) return@post
 
                     try {
                         val request = call.receive<CreateBranchRequest>()
@@ -42,7 +42,7 @@ fun Route.inventoryRoutes() {
 
                 // Get all branches (admin only)
                 get {
-                    if (!call.requireAdmin()) return@get
+                    if (!call.requireEmployee()) return@get
 
                     try {
                         val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
@@ -56,7 +56,7 @@ fun Route.inventoryRoutes() {
 
                 // Get branch by ID (admin only)
                 get("/{id}") {
-                    if (!call.requireAdmin()) return@get
+                    if (!call.requireEmployee()) return@get
 
                     try {
                         val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
@@ -71,7 +71,7 @@ fun Route.inventoryRoutes() {
 
                 // Update branch (admin only)
                 put("/{id}") {
-                    if (!call.requireAdmin()) return@put
+                    if (!call.requireEmployee()) return@put
 
                     try {
                         val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
@@ -87,7 +87,7 @@ fun Route.inventoryRoutes() {
 
                 // Delete branch (admin only)
                 delete("/{id}") {
-                    if (!call.requireAdmin()) return@delete
+                    if (!call.requireEmployee()) return@delete
 
                     try {
                         val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
@@ -104,6 +104,32 @@ fun Route.inventoryRoutes() {
 
         // ============= Category Routes =============
         route("/categories") {
+            // Public: Get all categories (no auth required)
+            get {
+                try {
+                    val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
+                    val offset = call.request.queryParameters["offset"]?.toLongOrNull() ?: 0L
+                    val categories = inventoryService.getAllCategories(limit, offset)
+                    call.respond(HttpStatusCode.OK, categories)
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse("ERROR", e.message ?: ""))
+                }
+            }
+
+            // Public: Get category by ID (no auth required)
+            get("/{id}") {
+                try {
+                    val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
+                    val category = inventoryService.getCategoryById(id)
+                    call.respond(HttpStatusCode.OK, category)
+                } catch (e: InventoryException.CategoryNotFound) {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse("CATEGORY_NOT_FOUND", e.message ?: ""))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("BAD_REQUEST", e.message ?: ""))
+                }
+            }
+
+            // Protected endpoints (require authentication)
             authenticate {
                 // Create category
                 post {
@@ -113,31 +139,6 @@ fun Route.inventoryRoutes() {
                         call.respond(HttpStatusCode.Created, category)
                     } catch (e: InventoryException.CategoryAlreadyExists) {
                         call.respond(HttpStatusCode.Conflict, ErrorResponse("CATEGORY_EXISTS", e.message ?: ""))
-                    } catch (e: Exception) {
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("BAD_REQUEST", e.message ?: ""))
-                    }
-                }
-
-                // Get all categories
-                get {
-                    try {
-                        val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
-                        val offset = call.request.queryParameters["offset"]?.toLongOrNull() ?: 0L
-                        val categories = inventoryService.getAllCategories(limit, offset)
-                        call.respond(HttpStatusCode.OK, categories)
-                    } catch (e: Exception) {
-                        call.respond(HttpStatusCode.InternalServerError, ErrorResponse("ERROR", e.message ?: ""))
-                    }
-                }
-
-                // Get category by ID
-                get("/{id}") {
-                    try {
-                        val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
-                        val category = inventoryService.getCategoryById(id)
-                        call.respond(HttpStatusCode.OK, category)
-                    } catch (e: InventoryException.CategoryNotFound) {
-                        call.respond(HttpStatusCode.NotFound, ErrorResponse("CATEGORY_NOT_FOUND", e.message ?: ""))
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.BadRequest, ErrorResponse("BAD_REQUEST", e.message ?: ""))
                     }
@@ -174,6 +175,38 @@ fun Route.inventoryRoutes() {
 
         // ============= Inventory Item Routes =============
         route("/items") {
+            // Public: Get all inventory items (no auth required)
+            get {
+                try {
+                    val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
+                    val offset = call.request.queryParameters["offset"]?.toLongOrNull() ?: 0L
+                    val categoryId = call.request.queryParameters["categoryId"]
+
+                    val items = if (categoryId != null) {
+                        inventoryService.getInventoryItemsByCategory(categoryId, limit, offset)
+                    } else {
+                        inventoryService.getAllInventoryItems(limit, offset)
+                    }
+                    call.respond(HttpStatusCode.OK, items)
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse("ERROR", e.message ?: ""))
+                }
+            }
+
+            // Public: Get inventory item by ID (no auth required)
+            get("/{id}") {
+                try {
+                    val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
+                    val item = inventoryService.getInventoryItemById(id)
+                    call.respond(HttpStatusCode.OK, item)
+                } catch (e: InventoryException.ItemNotFound) {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse("ITEM_NOT_FOUND", e.message ?: ""))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("BAD_REQUEST", e.message ?: ""))
+                }
+            }
+
+            // Protected endpoints (require authentication)
             authenticate {
                 // Create inventory item
                 post {
@@ -183,31 +216,6 @@ fun Route.inventoryRoutes() {
                         call.respond(HttpStatusCode.Created, item)
                     } catch (e: InventoryException.ItemAlreadyExists) {
                         call.respond(HttpStatusCode.Conflict, ErrorResponse("ITEM_EXISTS", e.message ?: ""))
-                    } catch (e: Exception) {
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("BAD_REQUEST", e.message ?: ""))
-                    }
-                }
-
-                // Get all inventory items
-                get {
-                    try {
-                        val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
-                        val offset = call.request.queryParameters["offset"]?.toLongOrNull() ?: 0L
-                        val items = inventoryService.getAllInventoryItems(limit, offset)
-                        call.respond(HttpStatusCode.OK, items)
-                    } catch (e: Exception) {
-                        call.respond(HttpStatusCode.InternalServerError, ErrorResponse("ERROR", e.message ?: ""))
-                    }
-                }
-
-                // Get inventory item by ID
-                get("/{id}") {
-                    try {
-                        val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
-                        val item = inventoryService.getInventoryItemById(id)
-                        call.respond(HttpStatusCode.OK, item)
-                    } catch (e: InventoryException.ItemNotFound) {
-                        call.respond(HttpStatusCode.NotFound, ErrorResponse("ITEM_NOT_FOUND", e.message ?: ""))
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.BadRequest, ErrorResponse("BAD_REQUEST", e.message ?: ""))
                     }

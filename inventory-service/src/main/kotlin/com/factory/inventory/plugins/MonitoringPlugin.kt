@@ -35,14 +35,9 @@ fun Application.configureMonitoring() {
             UptimeMetrics()
         )
 
-        // Custom metric tags
+        // Custom metric tags for proper service identification
         timers { call, exception ->
-            tag("service", when {
-                call.request.local.uri.startsWith("/api/v1/auth") -> "auth-service"
-                call.request.local.uri.startsWith("/api/v1/admin/auth") -> "auth-service"
-                call.request.local.uri.startsWith("/api/v1/inventory") -> "inventory-service"
-                else -> "core"
-            })
+            tag("service", "inventory-service")
             tag("uri", call.request.local.uri)
             tag("method", call.request.local.method.value)
             tag("status", exception?.let { "error" } ?: "success")

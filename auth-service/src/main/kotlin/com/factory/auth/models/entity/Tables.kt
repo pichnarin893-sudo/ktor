@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 
 /**
  * Roles table definition
- * Stores user roles: admin, manager, staff
+ * Stores user roles: employee, customer
  * No schema prefix - auth-service owns the entire auth_db database
  */
 object Roles : Table("roles") {
@@ -31,6 +31,12 @@ object Users : Table("users") {
     val gender = varchar("gender", 20).nullable()
     val roleId = uuid("role_id").references(Roles.id)
     val isActive = bool("is_active").default(true)
+    val addressLine1 = varchar("address_line1", 255).nullable()
+    val addressLine2 = varchar("address_line2", 255).nullable()
+    val city = varchar("city", 100).nullable()
+    val state = varchar("state", 100).nullable()
+    val postalCode = varchar("postal_code", 20).nullable()
+    val country = varchar("country", 100).nullable()
     val createdAt = datetime("created_at").clientDefault { LocalDateTime.now() }
     val updatedAt = datetime("updated_at").clientDefault { LocalDateTime.now() }
 
@@ -47,6 +53,7 @@ object Credentials : Table("credentials") {
     val email = varchar("email", 255).uniqueIndex()
     val username = varchar("username", 100).uniqueIndex().nullable()
     val phoneNumber = varchar("phone_number", 20).uniqueIndex().nullable()
+    val telegramId = long("telegram_id").uniqueIndex().nullable()
     val password = varchar("password", 255)
     val otp = varchar("otp", 6).nullable()
     val otpExpiry = datetime("otp_expiry").nullable()

@@ -8,9 +8,9 @@ import java.util.*
  * Role enumeration
  */
 enum class RoleType(val value: String) {
-    ADMIN("admin"),
-    MANAGER("manager"),
-    STAFF("staff");
+    EMPLOYEE("employee"),
+    CUSTOMER("customer");
+//    STAFF("staff");
 
     companion object {
         fun fromString(value: String): RoleType? {

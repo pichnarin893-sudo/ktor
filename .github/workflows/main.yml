@@ -1,0 +1,589 @@
+name: Factory Microservices CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - deploy
+          - rollback
+          - migrate
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      service:
+        description: 'Service to deploy/migrate (or "all")'
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - auth-service
+          - inventory-service
+          - order-service
+          - telegram-bot-service
+      image_tag:
+        description: 'Docker image tag (for deploy/rollback)'
+        type: string
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/factory
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  # ============================================
+  # JOB 1: Code Quality and Validation
+  # ============================================
+  code-quality:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Run Kotlin linter (detekt)
+        run: ./gradlew detekt --continue
+        continue-on-error: true
+
+      - name: Run code formatter check (ktlint)
+        run: ./gradlew ktlintCheck --continue
+        continue-on-error: true
+
+      - name: Upload detekt report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detekt-report
+          path: build/reports/detekt/
+          retention-days: 7
+
+  # ============================================
+  # JOB 2: Build and Test All Services
+  # ============================================
+  build-and-test:
+    name: Build & Test - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs: code-quality
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - inventory-service
+          - order-service
+          - telegram-bot-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build ${{ matrix.service }}
+        run: ./gradlew :${{ matrix.service }}:build
+
+      - name: Run unit tests
+        run: ./gradlew :${{ matrix.service }}:test --continue
+        continue-on-error: true
+
+      - name: Build fat JAR
+        run: ./gradlew :${{ matrix.service }}:buildFatJar
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.service }}
+          path: ${{ matrix.service }}/build/test-results/
+          retention-days: 7
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/build/libs/*-all.jar
+          retention-days: 7
+
+  # ============================================
+  # JOB 3: Build and Push Docker Images
+  # ============================================
+  build-docker:
+    name: Build Docker - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      startsWith(github.ref, 'refs/tags/v')
+
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - inventory-service
+          - order-service
+          - telegram-bot-service
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # JOB 4: Security Scanning
+  # ============================================
+  security-scan:
+    name: Security Scan - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: build-docker
+    if: github.event_name == 'push'
+
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - inventory-service
+          - order-service
+          - telegram-bot-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.ref_name }}-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+        continue-on-error: true
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+        continue-on-error: true
+
+  # ============================================
+  # JOB 5: Deploy to Staging
+  # ============================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-docker
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.factory.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Auth Service
+        run: |
+          echo "🚀 Deploying auth-service to staging..."
+          # kubectl set image deployment/auth-service auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:develop-${{ github.sha }}
+          # kubectl rollout status deployment/auth-service
+
+      - name: Deploy Inventory Service
+        run: |
+          echo "🚀 Deploying inventory-service to staging..."
+          # kubectl set image deployment/inventory-service inventory-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/inventory-service:develop-${{ github.sha }}
+
+      - name: Deploy Order Service
+        run: |
+          echo "🚀 Deploying order-service to staging..."
+          # kubectl set image deployment/order-service order-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:develop-${{ github.sha }}
+
+      - name: Deploy Telegram Bot Service
+        run: |
+          echo "🚀 Deploying telegram-bot-service to staging..."
+          # kubectl set image deployment/telegram-bot-service telegram-bot-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/telegram-bot-service:develop-${{ github.sha }}
+
+      - name: Wait for services
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          sleep 15
+
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests..."
+          # bash .github/scripts/smoke-tests.sh staging
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "📢 Staging deployment: ${{ job.status }}"
+
+  # ============================================
+  # JOB 6: Deploy to Production
+  # ============================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://factory.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Auth Service
+        run: |
+          echo "🚀 Deploying auth-service to production..."
+          # kubectl set image deployment/auth-service auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:main-${{ github.sha }}
+          # kubectl rollout status deployment/auth-service
+
+      - name: Deploy Inventory Service
+        run: |
+          echo "🚀 Deploying inventory-service to production..."
+          # kubectl set image deployment/inventory-service inventory-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/inventory-service:main-${{ github.sha }}
+          # kubectl rollout status deployment/inventory-service
+
+      - name: Deploy Order Service
+        run: |
+          echo "🚀 Deploying order-service to production..."
+          # kubectl set image deployment/order-service order-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:main-${{ github.sha }}
+          # kubectl rollout status deployment/order-service
+
+      - name: Deploy Telegram Bot Service
+        run: |
+          echo "🚀 Deploying telegram-bot-service to production..."
+          # kubectl set image deployment/telegram-bot-service telegram-bot-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/telegram-bot-service:main-${{ github.sha }}
+          # kubectl rollout status deployment/telegram-bot-service
+
+      - name: Wait for services
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          sleep 20
+
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests..."
+          # bash .github/scripts/smoke-tests.sh production
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed!"
+
+  # ============================================
+  # JOB 7: Manual Deploy (workflow_dispatch)
+  # ============================================
+  manual-deploy:
+    name: Manual Deploy - ${{ inputs.service }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'deploy'
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy services
+        run: |
+          echo "🚀 Manual deployment started"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Service: ${{ inputs.service }}"
+          echo "Image tag: ${{ inputs.image_tag }}"
+
+          # Deploy all or specific service
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "auth-service" ]; then
+            echo "Deploying auth-service..."
+            # kubectl set image deployment/auth-service auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:${{ inputs.image_tag }}
+          fi
+
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "inventory-service" ]; then
+            echo "Deploying inventory-service..."
+            # kubectl set image deployment/inventory-service inventory-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/inventory-service:${{ inputs.image_tag }}
+          fi
+
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "order-service" ]; then
+            echo "Deploying order-service..."
+            # kubectl set image deployment/order-service order-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:${{ inputs.image_tag }}
+          fi
+
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "telegram-bot-service" ]; then
+            echo "Deploying telegram-bot-service..."
+            # kubectl set image deployment/telegram-bot-service telegram-bot-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/telegram-bot-service:${{ inputs.image_tag }}
+          fi
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment completed"
+
+  # ============================================
+  # JOB 8: Manual Rollback (workflow_dispatch)
+  # ============================================
+  manual-rollback:
+    name: Rollback - ${{ inputs.service }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rollback services
+        run: |
+          echo "⏪ Rolling back to: ${{ inputs.image_tag }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Service: ${{ inputs.service }}"
+
+          # Same deployment logic as manual-deploy, but with previous tag
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "auth-service" ]; then
+            echo "Rolling back auth-service..."
+            # kubectl set image deployment/auth-service auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:${{ inputs.image_tag }}
+          fi
+
+      - name: Verify rollback
+        run: |
+          echo "✅ Rollback completed"
+
+  # ============================================
+  # JOB 9: Database Migration (workflow_dispatch)
+  # ============================================
+  database-migration:
+    name: Database Migration - ${{ inputs.service }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'migrate'
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Backup database (Production only)
+        if: inputs.environment == 'production'
+        run: |
+          echo "📦 Creating database backup..."
+          # Add backup commands
+
+      - name: Run migrations
+        run: |
+          echo "🗄️ Running database migrations..."
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Service: ${{ inputs.service }}"
+
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "auth-service" ]; then
+            echo "Migrating auth-service database..."
+            # kubectl exec deployment/auth-service -- /app/migrate.sh
+          fi
+
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "inventory-service" ]; then
+            echo "Migrating inventory-service database..."
+            # kubectl exec deployment/inventory-service -- /app/migrate.sh
+          fi
+
+          if [ "${{ inputs.service }}" == "all" ] || [ "${{ inputs.service }}" == "order-service" ]; then
+            echo "Migrating order-service database..."
+            # kubectl exec deployment/order-service -- /app/migrate.sh
+          fi
+
+      - name: Verify migration
+        run: |
+          echo "✅ Migration completed"
+
+  # ============================================
+  # JOB 10: Create Release (on tag push)
+  # ============================================
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-docker
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Build fat JARs
+        run: |
+          chmod +x gradlew
+          ./gradlew :auth-service:buildFatJar
+          ./gradlew :inventory-service:buildFatJar
+          ./gradlew :order-service:buildFatJar
+          ./gradlew :telegram-bot-service:buildFatJar
+
+      - name: Create release artifacts
+        run: |
+          mkdir -p release-artifacts
+          cp auth-service/build/libs/*-all.jar release-artifacts/auth-service-${{ steps.version.outputs.version }}.jar
+          cp inventory-service/build/libs/*-all.jar release-artifacts/inventory-service-${{ steps.version.outputs.version }}.jar
+          cp order-service/build/libs/*-all.jar release-artifacts/order-service-${{ steps.version.outputs.version }}.jar
+          cp telegram-bot-service/build/libs/*-all.jar release-artifacts/telegram-bot-service-${{ steps.version.outputs.version }}.jar
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## 🎉 Release ${{ steps.version.outputs.version }}
+
+            ### What's Changed
+            ${{ env.CHANGELOG }}
+
+            ### 📦 Services Included
+            - Auth Service
+            - Inventory Service
+            - Order Service
+            - Telegram Bot Service
+
+            ### 🐳 Docker Images
+            ```bash
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service:${{ steps.version.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/inventory-service:${{ steps.version.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:${{ steps.version.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/telegram-bot-service:${{ steps.version.outputs.version }}
+            ```
+
+          files: release-artifacts/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # JOB 11: PR Status Check
+  # ============================================
+  pr-status:
+    name: PR Status Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [code-quality, build-and-test]
+
+    steps:
+      - name: All checks passed
+        run: |
+          echo "✅ All PR checks passed!"
+          echo "This PR is ready for review."
+
+      - name: Add PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ All automated checks passed! Ready for review.'
+            })

@@ -14,19 +14,20 @@ docker-compose ps
 # 3. Run database migrations
 cd ktor/auth-service/src/main/resources/db$ ./migrate.sh 001_create_auth_schema.sql
 cd ktor/inventory-service/src/main/resources/db$ ./migrate.sh 002_create_inventory_schema.sql
+cd ktor/order-service/src/main/resources/db$ ./migrate.sh 003_create_order_schema.sql
 
 
 # 4. (Optional) Load seed data
-cd ktor/auth-service/src/main/resources/db$ ./seed.sh 001_mock_roles.sql
-cd ktor/auth-service/src/main/resources/db$ ./seed.sh 002_mock-users.sql
-cd ktor/auth-service/src/main/resources/db$ ./seed.sh 003-mock_credentials.sql
+cd ktor/auth-service/src/main/resources/db$ ./seed.sh 001__seed_demo_users.sql
+cd ktor/auth-service/src/main/resources/db$ ./seed.sh 003__mock_credentials.sql
 cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 004__mock_branches.sql
 cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 005__mock_categories.sql
 cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 006__mock_inventory_items.sql
 cd ktor/inventory-service/src/main/resources/db$ ./seed.sh 007__mock_stock_levels.sql
+cd ktor/order-service/src/main/resources/db$ ./seed.sh 008__mock_orders.sql
 
 #4.1 (Optional) Rollback
-cd ktor/auth-service/src/main/resources/db$ ./rollback.sh 001_create_auth_schema.sql
+cd ktor/auth-service/src/main/resources/db$ ./rollback.sh 001_drop_auth_schema.sql
 cd ktor/inventory-service/src/main/resources/db$ ./rollback.sh 002_drop_inventory_schema.sql
 
 # 5. Verify everything is running

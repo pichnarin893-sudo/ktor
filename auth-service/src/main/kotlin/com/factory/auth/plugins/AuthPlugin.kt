@@ -61,8 +61,8 @@ fun Application.configureAuth() {
             }
         }
 
-        // Admin JWT configuration
-        jwt("admin-jwt") {
+        // Employee JWT configuration
+        jwt("employee-jwt") {
             realm = jwtConfig.realm
             verifier(
                 JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -86,7 +86,7 @@ fun Application.configureAuth() {
                 // Validate audience and role
                 if (credential.payload.audience.contains(jwtConfig.audience)) {
                     val role = credential.payload.getClaim("role").asString()
-                    if (role == "admin") {
+                    if (role == "employee") {
                         JWTPrincipal(credential.payload)
                     } else {
                         null
@@ -107,8 +107,8 @@ fun Application.configureAuth() {
             }
         }
 
-        // Manager JWT configuration
-        jwt("manager-jwt") {
+        // Customer JWT configuration
+        jwt("customer-jwt") {
             realm = jwtConfig.realm
             verifier(
                 JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -132,53 +132,7 @@ fun Application.configureAuth() {
                 // Validate audience and role
                 if (credential.payload.audience.contains(jwtConfig.audience)) {
                     val role = credential.payload.getClaim("role").asString()
-                    if (role == "manager") {
-                        JWTPrincipal(credential.payload)
-                    } else {
-                        null
-                    }
-                } else {
-                    null
-                }
-            }
-
-            challenge { _, _ ->
-                call.respond(HttpStatusCode.Unauthorized, mapOf(
-                    "success" to false,
-                    "error" to mapOf(
-                        "code" to "UNAUTHORIZED",
-                        "message" to "Invalid or expired token"
-                    )
-                ))
-            }
-        }
-
-        // Staff JWT configuration
-        jwt("staff-jwt") {
-            realm = jwtConfig.realm
-            verifier(
-                JWT.require(Algorithm.HMAC256(jwtConfig.secret))
-                    .withAudience(jwtConfig.audience)
-                    .withIssuer(jwtConfig.issuer)
-                    .build()
-            )
-
-            validate { credential ->
-                // Check if token is blacklisted
-                val token = request.headers["Authorization"]?.removePrefix("Bearer ")
-                if (token != null) {
-                    val isBlacklisted = runBlocking {
-                        tokenRepository.isTokenBlacklisted(token)
-                    }
-                    if (isBlacklisted) {
-                        return@validate null
-                    }
-                }
-
-                // Validate audience and role
-                if (credential.payload.audience.contains(jwtConfig.audience)) {
-                    val role = credential.payload.getClaim("role").asString()
-                    if (role == "staff") {
+                    if (role == "customer") {
                         JWTPrincipal(credential.payload)
                     } else {
                         null

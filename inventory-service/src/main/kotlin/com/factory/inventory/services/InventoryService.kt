@@ -199,6 +199,19 @@ class InventoryService(
         )
     }
 
+    suspend fun getInventoryItemsByCategory(categoryId: String, limit: Int = 100, offset: Long = 0): PaginatedResponse<InventoryItemResponse> {
+        val catId = UUID.fromString(categoryId)
+        val items = inventoryItemRepository.findByCategoryId(catId)
+        val paginatedItems = items.drop(offset.toInt()).take(limit)
+        return PaginatedResponse(
+            data = paginatedItems.map { it.toResponse(categoryRepository, stockLevelRepository) },
+            total = items.size.toLong(),
+            page = (offset / limit).toInt() + 1,
+            pageSize = limit,
+            totalPages = ((items.size + limit - 1) / limit).toInt()
+        )
+    }
+
     suspend fun updateInventoryItem(id: String, request: UpdateInventoryItemRequest): InventoryItemResponse {
         val itemId = UUID.fromString(id)
         inventoryItemRepository.findById(itemId)

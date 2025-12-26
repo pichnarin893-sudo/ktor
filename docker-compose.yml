@@ -38,19 +38,19 @@ services:
     networks:
       - app-network
 
-  telegram-db:
-    container_name: telegram_postgres_db
+  order-db:
+    container_name: order_postgres_db
     image: postgres:16-alpine
     environment:
-      - POSTGRES_DB=telegram_db
-      - POSTGRES_USER=${TELEGRAM_DB_USER:-telegram_user}
-      - POSTGRES_PASSWORD=${TELEGRAM_DB_PASSWORD:-telegram_password}
+      - POSTGRES_DB=order_db
+      - POSTGRES_USER=${ORDER_DB_USER:-order_user}
+      - POSTGRES_PASSWORD=${ORDER_DB_PASSWORD:-order_password}
     ports:
-      - "5434:5432"
+      - "5435:5432"
     volumes:
-      - telegram-db-data:/var/lib/postgresql/data
+      - order-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${TELEGRAM_DB_USER:-telegram_user} -d telegram_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER:-order_user} -d order_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -138,6 +138,73 @@ services:
       retries: 3
       start_period: 40s
 
+  order-service:
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+    container_name: order_service
+    ports:
+      - "8083:8083"
+    environment:
+      # Service Configuration
+      - PORT=8083
+
+      # Database Configuration (separate order database)
+      - DATABASE_URL=jdbc:postgresql://order-db:5432/order_db
+      - DATABASE_USER=${ORDER_DB_USER:-order_user}
+      - DATABASE_PASSWORD=${ORDER_DB_PASSWORD:-order_password}
+      - DATABASE_MAX_POOL_SIZE=10
+
+      # JWT Configuration (same secret for validation)
+      - JWT_SECRET=${JWT_SECRET:-8K59fYiceqUan0esfTepgFZrQ+4dz+3rCIcH1PJ0uQ/c/uQdBUvt8NePhQ6uIwSx03nl0/RG8LTiBXcARUslGQ/ffff1ENnSqQX+CLsYzdEwH9Boq0uul6HXQog3BDGTLcpzvXHGKWaBqukDuaW/r3/qemMYPDYBs64pS1HgYso=}
+      - JWT_ISSUER=http://auth-service:8081/
+      - JWT_AUDIENCE=http://auth-service:8081/api
+
+      # Service URLs for inter-service communication
+      - INVENTORY_SERVICE_URL=http://inventory-service:8082
+
+      # Application Configuration
+      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
+      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
+    depends_on:
+      order-db:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  telegram-bot-service:
+    build:
+      context: .
+      dockerfile: telegram-bot-service/Dockerfile
+    container_name: telegram_bot_service
+    environment:
+      # Telegram Bot Token (get from @BotFather on Telegram)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-8180002721:AAH574HW27ndoV_vc_RKYIoIxbAraxx7ZMg}
+
+      # Service URLs
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - INVENTORY_SERVICE_URL=http://inventory-service:8082
+      - ORDER_SERVICE_URL=http://order-service:8083
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
   prometheus:
     container_name: factory_prometheus
     image: prom/prometheus:latest
@@ -176,8 +243,8 @@ volumes:
     name: auth_db_data
   inventory-db-data:
     name: inventory_db_data
-  telegram-db-data:
-    name: telegram_db_data
+  order-db-data:
+    name: order_db_data
   prometheus-data:
     name: prometheus_data
   grafana-data:

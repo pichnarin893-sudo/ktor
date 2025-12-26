@@ -5,9 +5,8 @@ package com.factory.common.security
  * Shared across all services
  */
 enum class Role {
-    ADMIN,
-    MANAGER,
-    STAFF;
+    EMPLOYEE,
+    CUSTOMER;
 
     companion object {
         fun fromString(role: String): Role? {

@@ -1,9 +1,0 @@
--- Seed data for roles
--- Auth service owns the entire auth_db database - no schema prefix needed
-
-INSERT INTO roles (id, name, created_at, updated_at)
-VALUES
-    ('11111111-1111-1111-1111-111111111111', 'admin', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('22222222-2222-2222-2222-222222222222', 'manager', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('33333333-3333-3333-3333-333333333333', 'staff', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (id) DO NOTHING;
