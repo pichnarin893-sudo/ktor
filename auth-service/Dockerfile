@@ -15,7 +15,7 @@ RUN gradle :auth-service:buildFatJar --no-daemon
 RUN ls -la /app/auth-service/build/libs/
 
 # Runtime stage
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Install curl for health checks
