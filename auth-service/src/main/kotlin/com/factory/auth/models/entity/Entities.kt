@@ -68,6 +68,7 @@ data class Credential(
     val email: String,
     val username: String?,
     val phoneNumber: String?,
+    val telegramId: Long?,
     val password: String,
     val otp: String?,
     val otpExpiry: LocalDateTime?,

@@ -2,9 +2,10 @@ package com.factory.order.repositories
 
 import com.factory.order.models.entity.OrderItems
 import com.factory.order.models.entity.Orders
+import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import java.math.BigDecimal
 import java.util.UUID
 
@@ -52,7 +53,7 @@ class OrderRepositoryImpl : OrderRepository {
         deliveryAddress: String,
         notes: String?,
         items: List<OrderItemData>
-    ): UUID = transaction {
+    ): UUID = newSuspendedTransaction(Dispatchers.IO) {
         val orderId = Orders.insertAndGetId {
             it[Orders.customerId] = customerId
             it[Orders.totalAmount] = totalAmount
@@ -75,9 +76,9 @@ class OrderRepositoryImpl : OrderRepository {
         orderId
     }
 
-    override suspend fun getOrderById(orderId: UUID): OrderData? = transaction {
+    override suspend fun getOrderById(orderId: UUID): OrderData? = newSuspendedTransaction(Dispatchers.IO) {
         val orderRow = Orders.select { Orders.id eq orderId }.singleOrNull()
-            ?: return@transaction null
+            ?: return@newSuspendedTransaction null
 
         val items = OrderItems.select { OrderItems.orderId eq orderId }.map {
             OrderItemData(
@@ -103,7 +104,7 @@ class OrderRepositoryImpl : OrderRepository {
         )
     }
 
-    override suspend fun getOrdersByCustomerId(customerId: UUID): List<OrderData> = transaction {
+    override suspend fun getOrdersByCustomerId(customerId: UUID): List<OrderData> = newSuspendedTransaction(Dispatchers.IO) {
         Orders.select { Orders.customerId eq customerId }
             .orderBy(Orders.createdAt to SortOrder.DESC)
             .map { orderRow ->
@@ -132,7 +133,7 @@ class OrderRepositoryImpl : OrderRepository {
             }
     }
 
-    override suspend fun getAllOrders(limit: Int, offset: Int): List<OrderData> = transaction {
+    override suspend fun getAllOrders(limit: Int, offset: Int): List<OrderData> = newSuspendedTransaction(Dispatchers.IO) {
         Orders.selectAll()
             .orderBy(Orders.createdAt to SortOrder.DESC)
             .limit(limit, offset.toLong())
@@ -162,13 +163,13 @@ class OrderRepositoryImpl : OrderRepository {
             }
     }
 
-    override suspend fun updateOrderStatus(orderId: UUID, status: String): Boolean = transaction {
+    override suspend fun updateOrderStatus(orderId: UUID, status: String): Boolean = newSuspendedTransaction(Dispatchers.IO) {
         Orders.update({ Orders.id eq orderId }) {
             it[Orders.status] = status
         } > 0
     }
 
-    override suspend fun deleteOrder(orderId: UUID): Boolean = transaction {
+    override suspend fun deleteOrder(orderId: UUID): Boolean = newSuspendedTransaction(Dispatchers.IO) {
         Orders.deleteWhere { id eq orderId } > 0
     }
 }

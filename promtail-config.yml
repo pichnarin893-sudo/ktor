@@ -1,0 +1,70 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Docker containers logs
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=small-scale-factory-micro"]
+
+    relabel_configs:
+      # Container name as job
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+
+      # Service name from compose
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'service'
+
+      # Project name
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: 'project'
+
+      # Container ID
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'container_id'
+
+      # Image name
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_image']
+        target_label: 'image'
+
+    pipeline_stages:
+      # Parse log levels
+      - match:
+          selector: '{service=~".*-service"}'
+          stages:
+            - regex:
+                expression: '(?P<timestamp>\d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<thread>[^\]]+)\] (?P<level>\w+)\s+(?P<logger>[^\s]+) -- (?P<message>.*)'
+            - labels:
+                level:
+                thread:
+                logger:
+
+      # Add timestamp
+      - timestamp:
+          source: timestamp
+          format: '15:04:05.000'
+
+      # Parse JSON logs if present
+      - json:
+          expressions:
+            level: level
+            message: message
+            logger: logger
+
+      # Drop health check logs (optional)
+      - match:
+          selector: '{service=~".*-service"} |~ "GET /health"'
+          action: drop

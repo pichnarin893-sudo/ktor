@@ -15,7 +15,7 @@ import org.koin.ktor.ext.inject
 fun Route.publicAuthRoutes() {
     val authService by inject<AuthService>()
 
-    route("/v1/auth") {
+    route("/api/v1/auth") {
         /**
          * Register a new user (seller or customer)
          * POST /v1/auth/register

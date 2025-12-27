@@ -4,6 +4,8 @@ import com.factory.telegram.bot.SimpleTelegramBot
 import com.factory.telegram.client.AuthServiceClient
 import com.factory.telegram.client.InventoryServiceClient
 import com.factory.telegram.client.OrderServiceClient
+import com.factory.telegram.services.ConversationStateManager
+import com.factory.telegram.services.SessionManager
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -42,17 +44,31 @@ fun main() {
     val inventoryClient = InventoryServiceClient(httpClient, inventoryServiceUrl)
     val orderClient = OrderServiceClient(httpClient, orderServiceUrl)
 
+    // Create in-memory managers
+    val stateManager = ConversationStateManager()
+    val sessionManager = SessionManager()
+
     // Initialize and start bot
-    val bot = SimpleTelegramBot(botToken, httpClient, authClient, inventoryClient, orderClient)
+    val bot = SimpleTelegramBot(
+        token = botToken,
+        httpClient = httpClient,
+        authClient = authClient,
+        inventoryClient = inventoryClient,
+        orderClient = orderClient,
+        stateManager = stateManager,
+        sessionManager = sessionManager
+    )
     bot.start()
 
     logger.info("Telegram Bot Service started successfully")
+    logger.info("Sessions are stored in-memory (will be lost on restart)")
 
     // Keep the application running
     Runtime.getRuntime().addShutdownHook(Thread {
         logger.info("Shutting down Telegram Bot Service...")
         bot.stop()
         httpClient.close()
+        logger.info("Active sessions: ${sessionManager.getActiveSessionCount()}")
     })
 
     // Block indefinitely

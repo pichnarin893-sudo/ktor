@@ -16,6 +16,7 @@ data class RegisterRequest(
     val phoneNumber: String? = null,
     val password: String,
     val role: String,
+    val telegramId: Long? = null,
     val dob: String? = null,
     val gender: String? = null
 )

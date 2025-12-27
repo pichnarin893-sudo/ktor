@@ -3,6 +3,10 @@ package com.factory.telegram.bot
 import com.factory.telegram.client.AuthServiceClient
 import com.factory.telegram.client.InventoryServiceClient
 import com.factory.telegram.client.OrderServiceClient
+import com.factory.telegram.models.RegistrationStep
+import com.factory.telegram.services.SessionManager
+import com.factory.telegram.services.ConversationStateManager
+import com.factory.telegram.utils.ValidationUtils
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -20,7 +24,9 @@ class SimpleTelegramBot(
     private val httpClient: HttpClient,
     private val authClient: AuthServiceClient,
     private val inventoryClient: InventoryServiceClient,
-    private val orderClient: OrderServiceClient
+    private val orderClient: OrderServiceClient,
+    private val stateManager: ConversationStateManager,
+    private val sessionManager: SessionManager
 ) {
     private val baseUrl = "https://api.telegram.org/bot$token"
     private var offset: Long = 0
@@ -77,52 +83,357 @@ class SimpleTelegramBot(
 
         logger.info("Received message: $text from user $telegramId")
 
-        when {
-            text.startsWith("/start") -> handleStart(chatId, telegramId, message.from)
-            text.startsWith("/products") -> handleProducts(chatId, telegramId)
-            text.startsWith("/categories") -> handleCategories(chatId)
-            text.startsWith("/category") -> handleCategoryProducts(chatId, text)
-            text.startsWith("/order") -> handleOrder(chatId, telegramId, text)
-            text.startsWith("/myorders") -> handleMyOrders(chatId, telegramId)
-            text.startsWith("/help") -> handleHelp(chatId)
-            else -> sendMessage(chatId, "Unknown command. Use /help to see available commands.")
+        // Check if user is in a conversation state
+        val state = stateManager.getState(telegramId)
+
+        if (state != null && state.step != RegistrationStep.IDLE) {
+            // User is in registration flow
+            handleRegistrationStep(chatId, telegramId, text, message.from)
+        } else {
+            // Handle regular commands
+            when {
+                text.startsWith("/start") -> handleStart(chatId, telegramId, message.from)
+                text.startsWith("/register") -> handleRegister(chatId, telegramId)
+                text.startsWith("/products") -> handleProducts(chatId, telegramId)
+                text.startsWith("/categories") -> handleCategories(chatId)
+                text.startsWith("/category") -> handleCategoryProducts(chatId, text)
+                text.startsWith("/order") -> handleOrder(chatId, telegramId, text)
+                text.startsWith("/myorders") -> handleMyOrders(chatId, telegramId)
+                text.startsWith("/help") -> handleHelp(chatId)
+                else -> sendMessage(chatId, "Unknown command. Use /help to see available commands.")
+            }
         }
     }
 
     private suspend fun handleStart(chatId: Long, telegramId: Long, from: User?) {
         val firstName = from?.first_name ?: "Customer"
-        val lastName = from?.last_name ?: ""
 
-        sendMessage(chatId, "Welcome to Factory Store! 🏭\n\nRegistering you as a customer...")
+        // Check if user already has a session
+        val existingSession = sessionManager.getSession(telegramId)
 
-        try {
-            authClient.registerCustomer(
-                telegramId = telegramId,
-                firstName = firstName,
-                lastName = lastName,
-                email = "customer_$telegramId@telegram.bot"
+        if (existingSession != null) {
+            sendMessage(
+                chatId,
+                """
+                Welcome back, $firstName! 👋
+
+                You're already registered! Here are your options:
+
+                /products - Browse all products
+                /categories - View product categories
+                /category <id> - Browse by category
+                /order <id> <qty> - Place an order
+                /myorders - View your orders
+                /help - Show help
+
+                Start shopping with /categories!
+                """.trimIndent()
             )
-            logger.info("Customer $telegramId registered successfully")
-        } catch (e: Exception) {
-            logger.warn("Customer $telegramId may already be registered: ${e.message}")
+        } else {
+            sendMessage(
+                chatId,
+                """
+                Welcome to Factory Store! 🏭
+
+                Hi $firstName! To start shopping, you need to register.
+
+                Use /register to create your account
+                Use /help to see all commands
+                """.trimIndent()
+            )
+        }
+    }
+
+    private suspend fun handleRegister(chatId: Long, telegramId: Long) {
+        // Check if already registered
+        val existingSession = sessionManager.getSession(telegramId)
+        if (existingSession != null) {
+            sendMessage(chatId, "You're already registered! Use /help to see available commands.")
+            return
         }
 
+        stateManager.setState(telegramId, RegistrationStep.AWAITING_FIRST_NAME)
         sendMessage(
             chatId,
             """
-            ✅ You're all set!
+            Let's get you registered! 📝
 
-            Available commands:
-            /products - Browse all products
-            /categories - View product categories
-            /category <name> - Browse by category
-            /order <id> <qty> - Place an order
-            /myorders - View your orders
-            /help - Show help
-
-            Use /categories to start shopping!
+            Please enter your first name:
             """.trimIndent()
         )
+    }
+
+    private suspend fun handleRegistrationStep(chatId: Long, telegramId: Long, text: String, from: User?) {
+        val state = stateManager.getState(telegramId) ?: return
+
+        // Check if user is trying to send a command during registration
+        if (text.startsWith("/")) {
+            when {
+                text.startsWith("/cancel") -> {
+                    stateManager.clearState(telegramId)
+                    sendMessage(
+                        chatId,
+                        """
+                        ❌ Registration cancelled.
+
+                        Use /register to start again
+                        Use /help to see available commands
+                        """.trimIndent()
+                    )
+                    return
+                }
+                text.startsWith("/register") -> {
+                    // User wants to restart registration
+                    stateManager.clearState(telegramId)
+                    handleRegister(chatId, telegramId)
+                    return
+                }
+                text.startsWith("/resendotp") -> {
+                    // Only allow during OTP verification
+                    if (state.step == RegistrationStep.AWAITING_OTP) {
+                        handleResendOTP(chatId, telegramId)
+                        return
+                    } else {
+                        sendMessage(
+                            chatId,
+                            """
+                            ❌ This command is only available during OTP verification.
+
+                            Please provide the requested information, or use /cancel to exit registration.
+                            """.trimIndent()
+                        )
+                        return
+                    }
+                }
+                else -> {
+                    sendMessage(
+                        chatId,
+                        """
+                        ❌ Commands are not allowed during registration.
+
+                        Please provide the requested information, or use /cancel to exit registration.
+                        """.trimIndent()
+                    )
+                    return
+                }
+            }
+        }
+
+        when (state.step) {
+            RegistrationStep.AWAITING_FIRST_NAME -> {
+                if (text.isBlank() || text.length > 100) {
+                    sendMessage(chatId, "❌ Invalid name. Please enter a valid first name (1-100 characters):")
+                    return
+                }
+                if (!text.all { it.isLetter() || it == ' ' || it == '-' || it == '\'' }) {
+                    sendMessage(chatId, "❌ First name can only contain letters, spaces, hyphens, and apostrophes. Please try again:")
+                    return
+                }
+                stateManager.saveData(telegramId, "firstName", text.trim())
+                stateManager.setState(telegramId, RegistrationStep.AWAITING_LAST_NAME)
+                sendMessage(chatId, "✅ First name saved!\n\nNow enter your last name:")
+            }
+
+            RegistrationStep.AWAITING_LAST_NAME -> {
+                if (text.isBlank() || text.length > 100) {
+                    sendMessage(chatId, "❌ Invalid name. Please enter a valid last name (1-100 characters):")
+                    return
+                }
+                if (!text.all { it.isLetter() || it == ' ' || it == '-' || it == '\'' }) {
+                    sendMessage(chatId, "❌ Last name can only contain letters, spaces, hyphens, and apostrophes. Please try again:")
+                    return
+                }
+                stateManager.saveData(telegramId, "lastName", text.trim())
+                stateManager.setState(telegramId, RegistrationStep.AWAITING_EMAIL)
+                sendMessage(chatId, "✅ Last name saved!\n\nEnter your email address:")
+            }
+
+            RegistrationStep.AWAITING_EMAIL -> {
+                if (!ValidationUtils.isValidEmail(text)) {
+                    sendMessage(chatId, "❌ Invalid email format. Please enter a valid email address:")
+                    return
+                }
+                stateManager.saveData(telegramId, "email", text.trim())
+                stateManager.setState(telegramId, RegistrationStep.AWAITING_PHONE)
+                sendMessage(chatId, "✅ Email saved!\n\nEnter your phone number (international format, e.g., +1234567890):")
+            }
+
+            RegistrationStep.AWAITING_PHONE -> {
+                if (!ValidationUtils.isValidPhone(text)) {
+                    sendMessage(chatId, "❌ Invalid phone number. Use international format (+1234567890):")
+                    return
+                }
+                stateManager.saveData(telegramId, "phone", text.trim())
+                stateManager.setState(telegramId, RegistrationStep.AWAITING_USERNAME)
+                sendMessage(chatId, "✅ Phone saved!\n\nCreate a username (3-20 characters, letters, numbers, underscore only):")
+            }
+
+            RegistrationStep.AWAITING_USERNAME -> {
+                if (!ValidationUtils.isValidUsername(text)) {
+                    sendMessage(chatId, "❌ Invalid username. Must be 3-20 characters (letters, numbers, underscore only):")
+                    return
+                }
+                stateManager.saveData(telegramId, "username", text.trim())
+                stateManager.setState(telegramId, RegistrationStep.AWAITING_PASSWORD)
+                sendMessage(
+                    chatId,
+                    """
+                    ✅ Username saved!
+
+                    Create a strong password:
+                    • At least 8 characters
+                    • Include uppercase and lowercase letters
+                    • Include at least one number
+
+                    Enter your password:
+                    """.trimIndent()
+                )
+            }
+
+            RegistrationStep.AWAITING_PASSWORD -> {
+                if (!ValidationUtils.isValidPassword(text)) {
+                    val message = ValidationUtils.getPasswordStrengthMessage(text)
+                    sendMessage(chatId, "❌ $message\n\nPlease try again:")
+                    return
+                }
+
+                // All data collected, register the user
+                val data = stateManager.getData(telegramId)
+
+                sendMessage(chatId, "Creating your account... ⏳")
+
+                try {
+                    val response = authClient.registerCustomer(
+                        telegramId = telegramId,
+                        firstName = data["firstName"]!!,
+                        lastName = data["lastName"]!!,
+                        email = data["email"]!!,
+                        username = data["username"],
+                        phoneNumber = data["phone"],
+                        password = text
+                    )
+
+                    // Store response for later use after OTP verification
+                    stateManager.saveData(telegramId, "userId", response.user.id)
+                    stateManager.saveData(telegramId, "accessToken", response.accessToken)
+                    stateManager.saveData(telegramId, "refreshToken", response.refreshToken)
+                    stateManager.saveData(telegramId, "expiresIn", response.expiresIn.toString())
+                    stateManager.saveData(telegramId, "userFirstName", response.user.firstName)
+                    stateManager.saveData(telegramId, "userLastName", response.user.lastName)
+
+                    // Transition to OTP verification
+                    stateManager.setState(telegramId, RegistrationStep.AWAITING_OTP)
+
+                    sendMessage(
+                        chatId,
+                        """
+                        ✅ Account created!
+
+                        📧 A 6-digit OTP has been sent to ${data["email"]}
+
+                        ⚠️ NOTE: Email is not configured yet. Check the auth-service logs for your OTP:
+                        Run: docker-compose logs auth-service | grep "OTP generated"
+
+                        Please enter your OTP to verify your account:
+                        """.trimIndent()
+                    )
+
+                    logger.info("User $telegramId registered, awaiting OTP verification")
+
+                } catch (e: Exception) {
+                    logger.error("Registration failed for user $telegramId", e)
+                    sendMessage(
+                        chatId,
+                        """
+                        ❌ Registration failed: ${e.message}
+
+                        Please try again with /register
+                        """.trimIndent()
+                    )
+                    stateManager.clearState(telegramId)
+                }
+            }
+
+            RegistrationStep.AWAITING_OTP -> {
+                // Validate OTP format (6 digits)
+                if (!text.matches(Regex("^\\d{6}$"))) {
+                    sendMessage(chatId, "❌ Invalid OTP format. Please enter a 6-digit code:")
+                    return
+                }
+
+                val data = stateManager.getData(telegramId)
+                val email = data["email"] ?: run {
+                    sendMessage(chatId, "❌ Session expired. Please use /register to start again.")
+                    stateManager.clearState(telegramId)
+                    return
+                }
+
+                sendMessage(chatId, "Verifying OTP... ⏳")
+
+                try {
+                    // Verify OTP with auth service
+                    authClient.verifyOTP(email, text.trim())
+
+                    // OTP verified! Now save the session
+                    val userId = data["userId"]!!
+                    val accessToken = data["accessToken"]!!
+                    val refreshToken = data["refreshToken"]!!
+                    val expiresIn = data["expiresIn"]!!.toLong()
+                    val firstName = data["userFirstName"]!!
+                    val lastName = data["userLastName"]!!
+
+                    sessionManager.saveSession(
+                        telegramId = telegramId,
+                        userId = userId,
+                        accessToken = accessToken,
+                        refreshToken = refreshToken,
+                        accessExpiresAt = System.currentTimeMillis() + (expiresIn * 1000),
+                        refreshExpiresAt = System.currentTimeMillis() + (7 * 24 * 3600 * 1000L)
+                    )
+
+                    stateManager.clearState(telegramId)
+
+                    sendMessage(
+                        chatId,
+                        """
+                        ✅ Account verified successfully! 🎉
+
+                        Welcome $firstName $lastName!
+
+                        Your account is now active and ready to use.
+
+                        Available commands:
+                        /products - Browse all products
+                        /categories - View categories
+                        /order <id> <qty> - Place an order
+                        /myorders - View your orders
+                        /help - Show all commands
+
+                        Use /categories to start shopping!
+                        """.trimIndent()
+                    )
+
+                    logger.info("User $telegramId verified successfully via OTP")
+
+                } catch (e: Exception) {
+                    logger.error("OTP verification failed for user $telegramId", e)
+                    sendMessage(
+                        chatId,
+                        """
+                        ❌ OTP verification failed: ${e.message}
+
+                        Please try again or use /resendotp to get a new code.
+                        """.trimIndent()
+                    )
+                    // Don't clear state - allow user to retry
+                }
+            }
+
+            else -> {
+                // Should not happen
+                stateManager.clearState(telegramId)
+            }
+        }
     }
 
     private suspend fun handleProducts(chatId: Long, telegramId: Long) {
@@ -233,7 +544,12 @@ class SimpleTelegramBot(
         sendMessage(chatId, "Creating your order... ⏳")
 
         try {
-            val token = authClient.loginCustomer(telegramId)
+            val token = getValidToken(telegramId)
+            if (token == null) {
+                sendMessage(chatId, "❌ You need to register first. Use /register to create an account.")
+                return
+            }
+
             val order = orderClient.createOrder(
                 token = token,
                 productId = productId,
@@ -263,7 +579,12 @@ class SimpleTelegramBot(
         sendMessage(chatId, "Loading your orders... ⏳")
 
         try {
-            val token = authClient.loginCustomer(telegramId)
+            val token = getValidToken(telegramId)
+            if (token == null) {
+                sendMessage(chatId, "❌ You need to register first. Use /register to create an account.")
+                return
+            }
+
             val orders = orderClient.getMyOrders(token)
 
             if (orders.isEmpty()) {
@@ -280,6 +601,39 @@ class SimpleTelegramBot(
         }
     }
 
+    // Get valid token for a user (auto-refresh if expired)
+    private suspend fun getValidToken(telegramId: Long): String? {
+        val session = sessionManager.getSession(telegramId) ?: return null
+
+        // Check if access token is still valid (with 5 minute buffer)
+        if (sessionManager.isAccessTokenValid(telegramId, bufferMinutes = 5)) {
+            return session.accessToken
+        }
+
+        // Access token expired, use refresh token
+        try {
+            logger.info("Access token expired for user $telegramId, refreshing...")
+            val newTokens = authClient.refreshToken(session.refreshToken)
+
+            sessionManager.saveSession(
+                telegramId = telegramId,
+                userId = session.userId,
+                accessToken = newTokens.accessToken,
+                refreshToken = newTokens.refreshToken,
+                accessExpiresAt = System.currentTimeMillis() + (newTokens.expiresIn * 1000),
+                refreshExpiresAt = System.currentTimeMillis() + (7 * 24 * 3600 * 1000L)
+            )
+
+            logger.info("Token refreshed successfully for user $telegramId")
+            return newTokens.accessToken
+        } catch (e: Exception) {
+            // Refresh failed, user needs to re-register
+            logger.error("Token refresh failed for user $telegramId", e)
+            sessionManager.deleteSession(telegramId)
+            return null
+        }
+    }
+
     private suspend fun handleHelp(chatId: Long) {
         sendMessage(
             chatId,
@@ -287,7 +641,8 @@ class SimpleTelegramBot(
             🏭 Factory Store Bot
 
             📋 Commands:
-            /start - Register/Start
+            /start - Welcome message
+            /register - Create account
             /products - Browse all products
             /categories - View categories
             /category <id> - Browse by category
@@ -295,12 +650,58 @@ class SimpleTelegramBot(
             /myorders - View your orders
             /help - Show this help
 
-            💡 Example:
-            1. /categories
-            2. /category abc-123
-            3. /order product-id 2
+            💡 Getting Started:
+            1. /register - Create your account
+            2. /categories - Browse categories
+            3. /category <id> - View products
+            4. /order <product_id> <qty> - Place order
+            5. /myorders - Track orders
             """.trimIndent()
         )
+    }
+
+    private suspend fun handleResendOTP(chatId: Long, telegramId: Long) {
+        val data = stateManager.getData(telegramId)
+        val email = data["email"]
+
+        if (email == null) {
+            sendMessage(chatId, "❌ Session expired. Please use /register to start again.")
+            stateManager.clearState(telegramId)
+            return
+        }
+
+        sendMessage(chatId, "Resending OTP... ⏳")
+
+        try {
+            authClient.resendOTP(email)
+
+            sendMessage(
+                chatId,
+                """
+                ✅ New OTP sent successfully!
+
+                📧 Check your email: $email
+
+                ⚠️ NOTE: Email is not configured yet. Check the auth-service logs for your OTP:
+                Run: docker-compose logs auth-service | grep "OTP resent"
+
+                Please enter your 6-digit OTP:
+                """.trimIndent()
+            )
+
+            logger.info("OTP resent for user $telegramId")
+
+        } catch (e: Exception) {
+            logger.error("Failed to resend OTP for user $telegramId", e)
+            sendMessage(
+                chatId,
+                """
+                ❌ Failed to resend OTP: ${e.message}
+
+                Please try again or use /register to start over.
+                """.trimIndent()
+            )
+        }
     }
 
     private suspend fun sendMessage(chatId: Long, text: String) {

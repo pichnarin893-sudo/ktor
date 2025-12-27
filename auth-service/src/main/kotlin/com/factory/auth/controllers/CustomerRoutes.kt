@@ -23,7 +23,7 @@ fun Route.customerRoutes() {
     val userService by inject<UserService>()
 
     authenticate("customer-jwt") {
-        route("/v1/customer/auth") {
+        route("/api/v1/customer/auth") {
             /**
              * Get customer profile
              * GET /v1/customer/auth/profile

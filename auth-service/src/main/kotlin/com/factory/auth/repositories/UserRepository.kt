@@ -152,6 +152,7 @@ class UserRepositoryImpl : UserRepository {
                         email = row[Credentials.email],
                         username = row[Credentials.username],
                         phoneNumber = row[Credentials.phoneNumber],
+                        telegramId = row[Credentials.telegramId],
                         password = row[Credentials.password],
                         otp = row[Credentials.otp],
                         otpExpiry = row[Credentials.otpExpiry],

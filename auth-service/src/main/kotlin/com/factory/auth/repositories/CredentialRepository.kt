@@ -17,6 +17,7 @@ interface CredentialRepository {
         email: String,
         username: String?,
         phoneNumber: String?,
+        telegramId: Long?,
         password: String
     ): Credential
 
@@ -35,6 +36,7 @@ interface CredentialRepository {
     suspend fun emailExists(email: String): Boolean
     suspend fun usernameExists(username: String): Boolean
     suspend fun phoneNumberExists(phoneNumber: String): Boolean
+    suspend fun telegramIdExists(telegramId: Long): Boolean
 }
 
 /**
@@ -49,6 +51,7 @@ class CredentialRepositoryImpl : CredentialRepository {
             email = row[Credentials.email],
             username = row[Credentials.username],
             phoneNumber = row[Credentials.phoneNumber],
+            telegramId = row[Credentials.telegramId],
             password = row[Credentials.password],
             otp = row[Credentials.otp],
             otpExpiry = row[Credentials.otpExpiry],
@@ -63,6 +66,7 @@ class CredentialRepositoryImpl : CredentialRepository {
         email: String,
         username: String?,
         phoneNumber: String?,
+        telegramId: Long?,
         password: String
     ): Credential = transaction {
         val credentialId = UUID.randomUUID()
@@ -74,6 +78,7 @@ class CredentialRepositoryImpl : CredentialRepository {
             it[Credentials.email] = email
             it[Credentials.username] = username
             it[Credentials.phoneNumber] = phoneNumber
+            it[Credentials.telegramId] = telegramId
             it[Credentials.password] = password
             it[otp] = null
             it[otpExpiry] = null
@@ -82,7 +87,7 @@ class CredentialRepositoryImpl : CredentialRepository {
             it[updatedAt] = now
         }
 
-        Credential(credentialId, userId, email, username, phoneNumber, password, null, null, false, now, now)
+        Credential(credentialId, userId, email, username, phoneNumber, telegramId, password, null, null, false, now, now)
     }
 
     override suspend fun findById(id: UUID): Credential? = transaction {
@@ -179,5 +184,9 @@ class CredentialRepositoryImpl : CredentialRepository {
 
     override suspend fun phoneNumberExists(phoneNumber: String): Boolean = transaction {
         Credentials.select { Credentials.phoneNumber eq phoneNumber }.count() > 0
+    }
+
+    override suspend fun telegramIdExists(telegramId: Long): Boolean = transaction {
+        Credentials.select { Credentials.telegramId eq telegramId }.count() > 0
     }
 }

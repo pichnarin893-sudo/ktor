@@ -20,7 +20,7 @@ fun Route.employeeOrderRoutes() {
     val orderService by inject<OrderService>()
 
     authenticate("employee-jwt") {
-        route("/v1/employee/orders") {
+        route("/api/v1/employee/orders") {
             /**
              * Get all orders
              * GET /v1/employee/orders?limit=100&offset=0
@@ -148,7 +148,7 @@ fun Route.customerOrderRoutes() {
     val orderService by inject<OrderService>()
 
     authenticate("customer-jwt") {
-            route("/v1/customer/orders") {
+            route("/api/v1/customer/orders") {
             /**
              * Create a new order
              * POST /v1/customer/orders

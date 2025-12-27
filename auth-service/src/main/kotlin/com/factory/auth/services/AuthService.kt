@@ -53,6 +53,12 @@ class AuthService(
             }
         }
 
+        request.telegramId?.let {
+            if (credentialRepository.telegramIdExists(it)) {
+                throw UserAlreadyExistsException("Telegram account already registered")
+            }
+        }
+
         // Validate role (only manager and staff can register)
         val roleType = RoleType.fromString(request.role)
             ?: throw InvalidRoleException("Invalid role: ${request.role}")
@@ -83,6 +89,7 @@ class AuthService(
             email = request.email,
             username = request.username,
             phoneNumber = request.phoneNumber,
+            telegramId = request.telegramId,
             password = hashedPassword
         )
 

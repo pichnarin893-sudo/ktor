@@ -20,12 +20,19 @@ class InventoryServiceClient(
 
     suspend fun getProduct(productId: UUID): ProductInfo? {
         return try {
-            val response: HttpResponse = client.get("$inventoryServiceUrl/v1/inventory/items/$productId")
+            val response: HttpResponse = client.get("$inventoryServiceUrl/api/v1/inventory/items/$productId")
 
             if (response.status == HttpStatusCode.OK) {
                 val body = response.bodyAsText()
-                val apiResponse = json.decodeFromString<ApiResponse<ProductInfo>>(body)
-                apiResponse.data
+                val inventoryItem = json.decodeFromString<InventoryItemResponse>(body)
+                // Map inventory item to ProductInfo
+                ProductInfo(
+                    id = inventoryItem.id,
+                    name = inventoryItem.name,
+                    description = inventoryItem.description,
+                    price = inventoryItem.unitPrice,
+                    stockQuantity = inventoryItem.totalStock
+                )
             } else {
                 null
             }
@@ -37,17 +44,30 @@ class InventoryServiceClient(
 }
 
 @Serializable
+data class InventoryItemResponse(
+    val id: String,
+    val sku: String,
+    val name: String,
+    val description: String? = null,
+    val categoryId: String,
+    val categoryName: String,
+    val unitOfMeasure: String,
+    val unitPrice: String,
+    val reorderLevel: Int,
+    val reorderQuantity: Int,
+    val barcode: String? = null,
+    val imageUrl: String? = null,
+    val isActive: Boolean,
+    val totalStock: Int,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+@Serializable
 data class ProductInfo(
     val id: String,
     val name: String,
     val description: String? = null,
     val price: String,
     val stockQuantity: Int? = null
-)
-
-@Serializable
-data class ApiResponse<T>(
-    val success: Boolean,
-    val data: T? = null,
-    val message: String? = null
 )

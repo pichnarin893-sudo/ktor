@@ -23,7 +23,7 @@ fun Route.employeeRoutes() {
     val userService by inject<UserService>()
 
     authenticate("employee-jwt") {
-        route("/v1/employee/auth") {
+        route("/api/v1/employee/auth") {
             /**
              * Get employee profile
              * GET /v1/employee/auth/profile
