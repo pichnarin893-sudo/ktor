@@ -8,6 +8,7 @@ object ValidationUtils {
     private val EMAIL_REGEX = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     private val PHONE_REGEX = Regex("^\\+?[1-9]\\d{1,14}$") // E.164 format
     private val USERNAME_REGEX = Regex("^[a-zA-Z0-9_]{3,20}$")
+    private enum class Role {ADMIN, CUSTOMER}
 
     /**
      * Validate email format
@@ -18,6 +19,14 @@ object ValidationUtils {
         return email.matches(EMAIL_REGEX)
     }
 
+    /**
+     * Validate role formmat
+     * @param role The role to validate
+     * @return true if role is valid, false otherwise
+     */
+    fun isValidRole(role: String): Boolean {
+        return runCatching { Role.valueOf(role) }.isSuccess
+    }
     /**
      * Validate phone number format (E.164 international format)
      * @param phoneNumber The phone number to validate

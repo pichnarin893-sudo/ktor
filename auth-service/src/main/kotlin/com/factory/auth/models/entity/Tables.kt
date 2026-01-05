@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 
 /**
  * Roles table definition
- * Stores user roles: employee, customer
+ * Stores user roles: admin, customer
  * No schema prefix - auth-service owns the entire auth_db database
  */
 object Roles : Table("roles") {

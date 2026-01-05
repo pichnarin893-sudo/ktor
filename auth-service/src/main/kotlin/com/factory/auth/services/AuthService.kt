@@ -63,8 +63,8 @@ class AuthService(
         val roleType = RoleType.fromString(request.role)
             ?: throw InvalidRoleException("Invalid role: ${request.role}")
 
-        if (roleType == RoleType.EMPLOYEE) {
-            throw InvalidRoleException("Cannot register as employee")
+        if (roleType == RoleType.ADMIN) {
+            throw InvalidRoleException("Cannot register as admin")
         }
 
         val role = roleRepository.findByName(roleType.value)

@@ -21,29 +21,29 @@ fun loadConfiguration(): AppConfig {
 
 
     val databaseConfig = DatabaseConfig(
-        url = System.getenv("DATABASE_URL")
+        url = System.getenv("DEV_DATABASE_URL")
             ?: config.tryGetString("database.url")
-            ?: "jdbc:postgresql://localhost:5432/microservice_db",
+            ?: "jdbc:postgresql://localhost:5432/auth_db",
         driver = config.tryGetString("database.driver") ?: "org.postgresql.Driver",
-        user = System.getenv("DATABASE_USER")
+        user = System.getenv("DEV_AUTH_DB_USER")
             ?: config.tryGetString("database.user")
-            ?: "postgres",
-        password = System.getenv("DATABASE_PASSWORD")
+            ?: "auth_user",
+        password = System.getenv("DEV_AUTH_DB_PASSWORD")
             ?: config.tryGetString("database.password")
-            ?: "postgres",
-        maxPoolSize = System.getenv("DATABASE_MAX_POOL_SIZE")?.toIntOrNull()
+            ?: "auth_password",
+        maxPoolSize = System.getenv("DEV_DATABASE_MAX_POOL_SIZE")?.toIntOrNull()
             ?: config.tryGetString("database.maxPoolSize")?.toIntOrNull()
             ?: 10  // Smaller pool for individual service
     )
 
     val jwtConfig = JWTConfig(
-        secret = System.getenv("JWT_SECRET")
+        secret = System.getenv("DEV_JWT_SECRET")
             ?: config.tryGetString("jwt.secret")
             ?: "default-secret-change-in-production",
-        issuer = System.getenv("JWT_ISSUER")
+        issuer = System.getenv("DEV_JWT_ISSUER")
             ?: config.tryGetString("jwt.issuer")
             ?: "http://localhost:8081/",
-        audience = System.getenv("JWT_AUDIENCE")
+        audience = System.getenv("DEV_JWT_AUDIENCE")
             ?: config.tryGetString("jwt.audience")
             ?: "http://localhost:8081/api",
         realm = config.tryGetString("jwt.realm") ?: "NatJoub Auth Service"

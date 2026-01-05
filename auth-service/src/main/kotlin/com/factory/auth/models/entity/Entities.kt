@@ -8,7 +8,7 @@ import java.util.*
  * Role enumeration
  */
 enum class RoleType(val value: String) {
-    EMPLOYEE("employee"),
+    ADMIN("admin"),
     CUSTOMER("customer");
 //    STAFF("staff");
 

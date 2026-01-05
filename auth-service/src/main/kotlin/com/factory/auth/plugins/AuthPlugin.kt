@@ -61,8 +61,8 @@ fun Application.configureAuth() {
             }
         }
 
-        // Employee JWT configuration
-        jwt("employee-jwt") {
+        // Admin JWT configuration
+        jwt("admin-jwt") {
             realm = jwtConfig.realm
             verifier(
                 JWT.require(Algorithm.HMAC256(jwtConfig.secret))
@@ -86,7 +86,7 @@ fun Application.configureAuth() {
                 // Validate audience and role
                 if (credential.payload.audience.contains(jwtConfig.audience)) {
                     val role = credential.payload.getClaim("role").asString()
-                    if (role == "employee") {
+                    if (role == "admin") {
                         JWTPrincipal(credential.payload)
                     } else {
                         null

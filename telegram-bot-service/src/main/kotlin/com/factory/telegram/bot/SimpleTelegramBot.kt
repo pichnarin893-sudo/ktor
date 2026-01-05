@@ -563,7 +563,7 @@ class SimpleTelegramBot(
                 ✅ Order created!
 
                 Order ID: ${order.id.take(8)}...
-                Total: $$${order.totalAmount}
+                Total: $${order.totalAmount}
                 Status: ${order.status}
 
                 Track: /myorders
@@ -591,7 +591,7 @@ class SimpleTelegramBot(
                 sendMessage(chatId, "You haven't placed any orders yet. Use /products to shop!")
             } else {
                 val orderList = orders.joinToString("\n\n") { order ->
-                    "📋 Order #${order.id.take(8)}\n💰 $$${order.totalAmount}\n📦 ${order.status}"
+                    "📋 Order #${order.id.take(8)}\n💰 $${order.totalAmount}\n📦 ${order.status}"
                 }
                 sendMessage(chatId, "📦 Your Orders:\n\n$orderList")
             }

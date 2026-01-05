@@ -5,52 +5,14 @@ services:
     image: postgres:16-alpine
     environment:
       - POSTGRES_DB=auth_db
-      - POSTGRES_USER=${AUTH_DB_USER:-auth_user}
-      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD:-auth_password}
+      - POSTGRES_USER=${DEV_AUTH_DB_USER}
+      - POSTGRES_PASSWORD=${DEV_AUTH_DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - auth-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:-auth_user} -d auth_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  inventory-db:
-    container_name: inventory_postgres_db
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=inventory_db
-      - POSTGRES_USER=${INVENTORY_DB_USER:-inventory_user}
-      - POSTGRES_PASSWORD=${INVENTORY_DB_PASSWORD:-inventory_password}
-    ports:
-      - "5433:5432"
-    volumes:
-      - inventory-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${INVENTORY_DB_USER:-inventory_user} -d inventory_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  order-db:
-    container_name: order_postgres_db
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=order_db
-      - POSTGRES_USER=${ORDER_DB_USER:-order_user}
-      - POSTGRES_PASSWORD=${ORDER_DB_PASSWORD:-order_password}
-    ports:
-      - "5435:5432"
-    volumes:
-      - order-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER:-order_user} -d order_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DEV_AUTH_DB_USER} -d auth_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -70,18 +32,18 @@ services:
 
       # Database Configuration (separate auth database)
       - DATABASE_URL=jdbc:postgresql://auth-db:5432/auth_db
-      - DATABASE_USER=${AUTH_DB_USER:-auth_user}
-      - DATABASE_PASSWORD=${AUTH_DB_PASSWORD:-auth_password}
+      - DATABASE_USER=${DEV_AUTH_DB_USER}
+      - DATABASE_PASSWORD=${DEV_AUTH_DB_PASSWORD}
       - DATABASE_MAX_POOL_SIZE=10
 
       # JWT Configuration
-      - JWT_SECRET=${JWT_SECRET:-8K59fYiceqUan0esfTepgFZrQ+4dz+3rCIcH1PJ0uQ/c/uQdBUvt8NePhQ6uIwSx03nl0/RG8LTiBXcARUslGQ/ffff1ENnSqQX+CLsYzdEwH9Boq0uul6HXQog3BDGTLcpzvXHGKWaBqukDuaW/r3/qemMYPDYBs64pS1HgYso=}
+      - JWT_SECRET=${DEV_JWT_SECRET}
       - JWT_ISSUER=http://auth-service:8081/
       - JWT_AUDIENCE=http://auth-service:8081/api
 
       # Application Configuration
-      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
-      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
+      - APP_ENVIRONMENT=${DEV_APP_ENVIRONMENT:-development}
+      - ENABLE_SWAGGER=${DEV_ENABLE_SWAGGER:-true}
     depends_on:
       auth-db:
         condition: service_healthy
@@ -95,92 +57,6 @@ services:
       retries: 3
       start_period: 40s
 
-  inventory-service:
-    build:
-      context: .
-      dockerfile: inventory-service/Dockerfile
-    container_name: inventory_service
-    ports:
-      - "8082:8082"
-    environment:
-      # Service Configuration
-      - PORT=8082
-
-      # Database Configuration (separate inventory database)
-      - DATABASE_URL=jdbc:postgresql://inventory-db:5432/inventory_db
-      - DATABASE_USER=${INVENTORY_DB_USER:-inventory_user}
-      - DATABASE_PASSWORD=${INVENTORY_DB_PASSWORD:-inventory_password}
-      - DATABASE_MAX_POOL_SIZE=10
-
-      # JWT Configuration (same secret for validation)
-      - JWT_SECRET=${JWT_SECRET:-8K59fYiceqUan0esfTepgFZrQ+4dz+3rCIcH1PJ0uQ/c/uQdBUvt8NePhQ6uIwSx03nl0/RG8LTiBXcARUslGQ/ffff1ENnSqQX+CLsYzdEwH9Boq0uul6HXQog3BDGTLcpzvXHGKWaBqukDuaW/r3/qemMYPDYBs64pS1HgYso=}
-      - JWT_ISSUER=http://auth-service:8081/
-      - JWT_AUDIENCE=http://auth-service:8081/api
-
-      # Auth Service URL for inter-service communication
-      - AUTH_SERVICE_URL=http://auth-service:8081
-
-      # Application Configuration
-      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
-      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
-    depends_on:
-      inventory-db:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
-    networks:
-      - app-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  order-service:
-    build:
-      context: .
-      dockerfile: order-service/Dockerfile
-    container_name: order_service
-    ports:
-      - "8083:8083"
-    environment:
-      # Service Configuration
-      - PORT=8083
-
-      # Database Configuration (separate order database)
-      - DATABASE_URL=jdbc:postgresql://order-db:5432/order_db
-      - DATABASE_USER=${ORDER_DB_USER:-order_user}
-      - DATABASE_PASSWORD=${ORDER_DB_PASSWORD:-order_password}
-      - DATABASE_MAX_POOL_SIZE=10
-
-      # JWT Configuration (same secret for validation)
-      - JWT_SECRET=${JWT_SECRET:-8K59fYiceqUan0esfTepgFZrQ+4dz+3rCIcH1PJ0uQ/c/uQdBUvt8NePhQ6uIwSx03nl0/RG8LTiBXcARUslGQ/ffff1ENnSqQX+CLsYzdEwH9Boq0uul6HXQog3BDGTLcpzvXHGKWaBqukDuaW/r3/qemMYPDYBs64pS1HgYso=}
-      - JWT_ISSUER=http://auth-service:8081/
-      - JWT_AUDIENCE=http://auth-service:8081/api
-
-      # Service URLs for inter-service communication
-      - INVENTORY_SERVICE_URL=http://inventory-service:8082
-
-      # Application Configuration
-      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-production}
-      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
-    depends_on:
-      order-db:
-        condition: service_healthy
-      inventory-service:
-        condition: service_healthy
-    networks:
-      - app-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
   telegram-bot-service:
     build:
       context: .
@@ -188,105 +64,23 @@ services:
     container_name: telegram_bot_service
     environment:
       # Telegram Bot Token (get from @BotFather on Telegram)
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-8180002721:AAH574HW27ndoV_vc_RKYIoIxbAraxx7ZMg}
+      - TELEGRAM_BOT_TOKEN=${DEV_TELEGRAM_BOT_TOKEN}
 
       # Service URLs
       - AUTH_SERVICE_URL=http://auth-service:8081
-      - INVENTORY_SERVICE_URL=http://inventory-service:8082
-      - ORDER_SERVICE_URL=http://order-service:8083
+
     depends_on:
       auth-service:
         condition: service_healthy
-      inventory-service:
-        condition: service_healthy
-      order-service:
-        condition: service_healthy
+
     networks:
       - app-network
     restart: unless-stopped
 
-#  loki:
-#    container_name: factory_loki
-#    image: grafana/loki:2.9.0
-#    ports:
-#      - "3100:3100"
-#    volumes:
-#      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
-#      - loki-data:/loki
-#    command: -config.file=/etc/loki/local-config.yaml
-#    networks:
-#      - app-network
-#    restart: unless-stopped
-#
-#  promtail:
-#    container_name: factory_promtail
-#    image: grafana/promtail:2.9.0
-#    volumes:
-#      - ./promtail-config.yml:/etc/promtail/config.yml
-#      - /var/run/docker.sock:/var/run/docker.sock
-#      - promtail-data:/tmp
-#    command: -config.file=/etc/promtail/config.yml
-#    depends_on:
-#      - loki
-#    networks:
-#      - app-network
-#    restart: unless-stopped
-#
-#  prometheus:
-#    container_name: factory_prometheus
-#    image: prom/prometheus:latest
-#    ports:
-#      - "9090:9090"
-#    volumes:
-#      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-#      - prometheus-data:/prometheus
-#    command:
-#      - '--config.file=/etc/prometheus/prometheus.yml'
-#      - '--storage.tsdb.path=/prometheus'
-#      - '--web.enable-lifecycle'
-#      - '--storage.tsdb.retention.time=30d'
-#    networks:
-#      - app-network
-#    restart: unless-stopped
-#
-#  grafana:
-#    container_name: factory_grafana
-#    image: grafana/grafana:latest
-#    ports:
-#      - "3000:3000"
-#    environment:
-#      - GF_SECURITY_ADMIN_PASSWORD=admin
-#      - GF_SECURITY_ADMIN_USER=admin
-#      - GF_USERS_ALLOW_SIGN_UP=false
-#      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/microservices-dashboard.json
-#      - GF_LOG_LEVEL=info
-#      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-#    volumes:
-#      - grafana-data:/var/lib/grafana
-#      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-#      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-#    depends_on:
-#      - prometheus
-#      - loki
-#    networks:
-#      - app-network
-#    restart: unless-stopped
-
 volumes:
   auth-db-data:
     name: auth_db_data
-  inventory-db-data:
-    name: inventory_db_data
-  order-db-data:
-    name: order_db_data
-#  prometheus-data:
-#    name: prometheus_data
-#  grafana-data:
-#    name: grafana_data
-#  loki-data:
-#    name: loki_data
-#  promtail-data:
-#    name: promtail_data
+
 
 networks:
   app-network:

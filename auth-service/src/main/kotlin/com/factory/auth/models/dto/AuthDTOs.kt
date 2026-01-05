@@ -6,9 +6,8 @@ import java.util.*
 /**
  * Request DTOs
  */
-
 @Serializable
-data class RegisterRequest(
+data class CreateUserRequest(
     val firstName: String,
     val lastName: String,
     val email: String,
@@ -16,9 +15,22 @@ data class RegisterRequest(
     val phoneNumber: String? = null,
     val password: String,
     val role: String,
-    val telegramId: Long? = null,
     val dob: String? = null,
     val gender: String? = null
+)
+
+@Serializable
+data class RegisterRequest(
+    val firstName: String,
+    val lastName: String,
+    val email: String,
+    val username: String,
+    val phoneNumber: String,
+    val password: String,
+    val role: String,
+    val telegramId: Long? = null,
+    val dob: String,
+    val gender: String
 )
 
 @Serializable
@@ -87,6 +99,11 @@ data class UserDTO(
     val isActive: Boolean,
     val isVerified: Boolean,
     val createdAt: String
+)
+
+@Serializable
+data class CreateUserResponse(
+    val user: UserDTO
 )
 
 @Serializable

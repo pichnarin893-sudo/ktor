@@ -5,7 +5,7 @@ package com.factory.common.security
  * Shared across all services
  */
 enum class Role {
-    EMPLOYEE,
+    ADMIN,
     CUSTOMER;
 
     companion object {

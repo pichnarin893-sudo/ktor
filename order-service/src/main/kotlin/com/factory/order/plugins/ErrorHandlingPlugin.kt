@@ -1,6 +1,5 @@
 package com.factory.order.plugins
 
-import com.factory.order.models.dto.ErrorResponse
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
@@ -11,14 +10,20 @@ fun Application.configureErrorHandling() {
         exception<Throwable> { call, cause ->
             call.respond(
                 HttpStatusCode.InternalServerError,
-                ErrorResponse(error = cause.message ?: "Unknown error")
+                mapOf(
+                    "success" to false,
+                    "error" to (cause.message ?: "Unknown error")
+                )
             )
         }
 
         exception<IllegalArgumentException> { call, cause ->
             call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse(error = cause.message ?: "Invalid request")
+                mapOf(
+                    "success" to false,
+                    "error" to (cause.message ?: "Invalid request")
+                )
             )
         }
     }

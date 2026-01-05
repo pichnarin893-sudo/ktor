@@ -2,9 +2,12 @@ package com.factory.auth.services
 
 import com.factory.auth.exceptions.*
 import com.factory.auth.models.dto.*
+import com.factory.auth.models.entity.RoleType
+import com.factory.auth.models.entity.UserWithCredentialsAndRole
 import com.factory.auth.repositories.CredentialRepository
 import com.factory.auth.repositories.RoleRepository
 import com.factory.auth.repositories.UserRepository
+import com.factory.auth.utils.PasswordUtils
 import com.factory.auth.utils.ValidationUtils
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -20,6 +23,78 @@ class UserService(
     private val roleRepository: RoleRepository
 ) {
     private val logger = LoggerFactory.getLogger(UserService::class.java)
+
+    /**
+     * Create a new user (admin only)
+     */
+    suspend fun createUser(request: CreateUserRequest): CreateUserResponse{
+        logger.info("Creating user: $request")
+
+        //Validate create user input
+        validateCreateUserRequest(request)
+
+        if (credentialRepository.emailExists(request.email)) {
+            throw UserAlreadyExistsException("Email already registered")
+        }
+
+        request.username?.let {
+            if (credentialRepository.usernameExists(it)) {
+                throw UserAlreadyExistsException("Username already taken")
+            }
+        }
+
+        request.phoneNumber?.let {
+            if (credentialRepository.phoneNumberExists(it)) {
+                throw UserAlreadyExistsException("Phone number already registered")
+            }
+        }
+
+        val roleType = RoleType.fromString(request.role)
+            ?: throw InvalidRoleException("Invalid role: ${request.role}")
+
+        val role = roleRepository.findByName(roleType.value)
+            ?: throw InvalidRoleException("Role not found: ${request.role}")
+
+
+        val dob = request.dob?.let{ LocalDate.parse(it) }
+
+        val user = userRepository.create(
+            firstName = request.firstName,
+            lastName = request.lastName,
+            roleId = role.id,
+            dob = dob,
+            gender = request.gender
+        )
+
+        val hashedPassword = PasswordUtils.hashPassword(request.password)
+        val credential = credentialRepository.create(
+            userId = user.id,
+            email = request.email,
+            username = request.username,
+            phoneNumber = request.phoneNumber,
+            password = hashedPassword,
+            telegramId = null
+        )
+
+        logger.info("User registered successfully: ${user.id}")
+
+        val userDto = UserDTO(
+            id = user.id.toString(),
+            firstName = user.firstName,
+            lastName = user.lastName,
+            email = request.email,
+            username = request.username,
+            phoneNumber = request.phoneNumber,
+            role = role.name,
+            dob = request.dob,
+            gender = request.gender,
+            isActive = user.isActive,
+            isVerified = true,
+            createdAt = user.createdAt.toString()
+        )
+
+        return CreateUserResponse(user = userDto)
+    }
 
     /**
      * Get user profile by user ID
@@ -235,9 +310,68 @@ class UserService(
     }
 
     /**
+     * Validate create user request
+     */
+    private fun validateCreateUserRequest(request: CreateUserRequest) {
+        val errors = mutableMapOf<String, String>()
+
+        request.role?.let {
+            if(!ValidationUtils.isValidRole(it)){
+                errors["role"] = "Invalid role must be one of those [ADMIN, CUSTOMER]";
+            }
+        }
+
+        request.firstName?.let {
+            if (!ValidationUtils.isValidName(it)) {
+                errors["firstName"] = "Invalid first name"
+            }
+        }
+
+        request.lastName?.let {
+            if (!ValidationUtils.isValidName(it)) {
+                errors["lastName"] = "Invalid last name"
+            }
+        }
+
+        request.email?.let{
+            if(!ValidationUtils.isValidEmail(it)){
+                errors["email"] =
+                    "Invalid email"
+            }
+        }
+
+        request.username?.let {
+            if (!ValidationUtils.isValidUsername(it)) {
+                errors["username"] =
+                    "Username must be 3-20 characters and contain only letters, numbers, and underscores"
+            }
+        }
+
+        request.phoneNumber?.let {
+            if (!ValidationUtils.isValidPhoneNumber(it)) {
+                errors["phoneNumber"] = "Invalid phone number format"
+            }
+        }
+
+        if(!PasswordUtils.isStrongPassword(request.password)){
+            errors["password"] = "Password must be at least 8 characters with uppercase, lowercase, digit, and special character"
+        }
+
+        request.dob?.let {
+            if (!ValidationUtils.isValidDateFormat(it)) {
+                errors["dob"] = "Invalid date format. Use YYYY-MM-DD"
+            }
+        }
+
+        if (errors.isNotEmpty()) {
+            throw ValidationException("Validation failed", errors)
+        }
+    }
+
+    /**
      * Map UserWithCredentialsAndRole to UserDTO
      */
-    private fun mapToUserDTO(userWithRole: com.factory.auth.models.entity.UserWithCredentialsAndRole): UserDTO {
+    private fun mapToUserDTO(userWithRole: UserWithCredentialsAndRole): UserDTO {
         return UserDTO(
             id = userWithRole.user.id.toString(),
             firstName = userWithRole.user.firstName,

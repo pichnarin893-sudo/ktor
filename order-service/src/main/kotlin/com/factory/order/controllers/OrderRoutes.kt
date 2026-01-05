@@ -1,7 +1,7 @@
 package com.factory.order.controllers
 
 import com.factory.common.security.getUserId
-import com.factory.common.security.requireEmployee
+import com.factory.common.security.requireAdmin
 import com.factory.order.models.dto.*
 import com.factory.order.services.OrderService
 import io.ktor.http.*
@@ -26,7 +26,7 @@ fun Route.employeeOrderRoutes() {
              * GET /v1/employee/orders?limit=100&offset=0
              */
             get {
-                if (!call.requireEmployee()) return@get
+                if (!call.requireAdmin()) return@get
 
                 val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
                 val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
@@ -48,7 +48,7 @@ fun Route.employeeOrderRoutes() {
              * GET /v1/employee/orders/{id}
              */
             get("/{id}") {
-                if (!call.requireEmployee()) return@get
+                if (!call.requireAdmin()) return@get
 
                 val orderId = UUID.fromString(call.parameters["id"])
                 val order = orderService.getOrder(orderId)
@@ -79,7 +79,7 @@ fun Route.employeeOrderRoutes() {
              * PUT /v1/employee/orders/{id}/status
              */
             put("/{id}/status") {
-                if (!call.requireEmployee()) return@put
+                if (!call.requireAdmin()) return@put
 
                 val orderId = UUID.fromString(call.parameters["id"])
                 val request = call.receive<UpdateOrderStatusRequest>()
@@ -112,7 +112,7 @@ fun Route.employeeOrderRoutes() {
              * DELETE /v1/employee/orders/{id}
              */
             delete("/{id}") {
-                if (!call.requireEmployee()) return@delete
+                if (!call.requireAdmin()) return@delete
 
                 val orderId = UUID.fromString(call.parameters["id"])
                 val deleted = orderService.deleteOrder(orderId)

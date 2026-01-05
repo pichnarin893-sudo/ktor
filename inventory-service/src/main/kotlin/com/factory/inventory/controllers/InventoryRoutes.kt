@@ -1,7 +1,7 @@
 package com.factory.inventory.controllers
 
 import com.factory.common.security.getUserId
-import com.factory.common.security.requireEmployee
+import com.factory.common.security.requireAdmin
 import com.factory.inventory.exceptions.InventoryException
 import com.factory.inventory.models.dto.*
 import com.factory.inventory.services.InventoryService
@@ -27,7 +27,7 @@ fun Route.inventoryRoutes() {
             authenticate {
                 // Create branch (admin only)
                 post {
-                    if (!call.requireEmployee()) return@post
+                    if (!call.requireAdmin()) return@post
 
                     try {
                         val request = call.receive<CreateBranchRequest>()
@@ -42,7 +42,7 @@ fun Route.inventoryRoutes() {
 
                 // Get all branches (admin only)
                 get {
-                    if (!call.requireEmployee()) return@get
+                    if (!call.requireAdmin()) return@get
 
                     try {
                         val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
@@ -56,7 +56,7 @@ fun Route.inventoryRoutes() {
 
                 // Get branch by ID (admin only)
                 get("/{id}") {
-                    if (!call.requireEmployee()) return@get
+                    if (!call.requireAdmin()) return@get
 
                     try {
                         val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
@@ -71,7 +71,7 @@ fun Route.inventoryRoutes() {
 
                 // Update branch (admin only)
                 put("/{id}") {
-                    if (!call.requireEmployee()) return@put
+                    if (!call.requireAdmin()) return@put
 
                     try {
                         val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")
@@ -87,7 +87,7 @@ fun Route.inventoryRoutes() {
 
                 // Delete branch (admin only)
                 delete("/{id}") {
-                    if (!call.requireEmployee()) return@delete
+                    if (!call.requireAdmin()) return@delete
 
                     try {
                         val id = call.parameters["id"] ?: throw IllegalArgumentException("Invalid ID")

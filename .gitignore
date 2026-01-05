@@ -29,6 +29,8 @@ logs/
 
 # Environment
 .env
+.env.dev
+.env.prod
 *.env.local
 
 # Database
@@ -43,9 +45,6 @@ logs/
 # Package files
 *.tar.gz
 *.zip
-
-#Enviroment file
-.env
 
 # Test reports
 test-results/
